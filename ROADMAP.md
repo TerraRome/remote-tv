@@ -15,40 +15,69 @@
 
 ## Milestone 3 - Domain Layer
 
-- [ ] Entities (TvDevice, TvConnection, PairingSession, TouchEvent)
-- [ ] Enums (RemoteCommand, ConnectionState, DiscoveryState)
-- [ ] Repository interfaces
-- [ ] Use cases
+- [x] Entities (TvDevice, TvConnection, PairingSession, TouchEvent)
+- [x] Enums (RemoteCommand, ConnectionState, DiscoveryState)
+- [x] Repository interfaces
+- [x] Use cases
 
 ## Milestone 4 - Driver System
 
-- [ ] TvDriver abstract interface
-- [ ] DriverRegistry
-- [ ] AndroidTvDriver, Samsung, LG, Coocaa stubs
+- [x] TvDriver abstract interface
+- [x] DriverRegistry
+- [x] AndroidTvDriver, Samsung, LG, Coocaa stubs
 
 ## Milestone 5 - Discovery Engine
 
-- [ ] DiscoveryProvider abstraction
-- [ ] mDNS, SSDP, Manual providers
-- [ ] DiscoveryService
-- [ ] DiscoveryRepository
+- [x] DiscoveryProvider abstraction
+- [x] mDNS, SSDP, Manual providers
+- [x] DiscoveryService
+- [x] DiscoveryRepository
 
 ## Milestone 6 - Discovery Feature
 
-- [ ] BLoC
-- [ ] UI (Loading, Empty, Error states)
+- [x] BLoC
+- [x] UI (Loading, Empty, Error states)
 
 ## Milestone 7 - Android TV Driver
 
-- [ ] Real connection, pairing, command sending
+### M7.1 - Core Connection Transport ✅
+
+- [x] SecureSocketTransport: `onBadCertificate` for TV self-signed certs
+- [x] Proper error mapping (SocketException, HandshakeException, TimeoutException)
+- [x] Dispose guard, permanent teardown
+- [x] Connection state stream (`TvConnectionState`)
+
+### M7.2a - Protocol Verification ✅
+
+- [x] Binary framing verified (type+length header match)
+- [x] Message types verified (all 9 codes present)
+- [x] Key event format verified (uint32 keycode + uint32 action)
+- [x] Touch event format: action wrong (uint32 vs uint16), coords wrong (scaled vs native pixels)
+
+### M7.2b - Transport Reliability ✅
+
+- [x] TCP reassembly (BytesBuilder, multi-frame, fragmented packets, buffer overflow guard)
+- [x] sendAndWait race condition fixed (subscribe before send, cleanup on send error)
+
+### M7.3 - Complete Driver
+
+- [x] AndroidTvDriver: default port 6466 (remote protocol, not ADB)
+- [x] Retry-safe connect (3 attempts, 2s delay)
+- [x] Key event sending
+- [x] Touch event sending
+- [x] Text sending (char → keyCode)
 
 ## Milestone 8 - Pairing Feature
 
-- [ ] PIN flow, BLoC, UI
+- [ ] Pairing flow: missing server ack step + option/config exchange after confirm
+- [ ] Certificate storage: missing cert pinning (onBadCertificate: true bypass)
+- [ ] PIN flow (scaffolded)
+- [ ] UI (scaffolded, needs real TLS)
 
 ## Milestone 9 - Remote Feature
 
-- [ ] Volume, Power, DPad, etc.
+- [x] BLoC
+- [x] Volume, Power, DPad widgets (scaffolded, needs real connection)
 
 ## Milestone 10 - Favorites
 
@@ -60,7 +89,7 @@
 
 ## Milestone 12 - Touchpad
 
-- [ ] Gestures, touch events
+- [ ] Gestures, touch events (touch format needs fix first)
 
 ## Milestone 13 - LG Driver
 

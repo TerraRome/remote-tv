@@ -40,19 +40,25 @@ lib/
 
 ## TV Driver System
 
-- `abstract interface class TvDriver` — core driver contract
+- `abstract interface class TvDriver` — core driver contract with methods: `supports`, `discover`, `connect`, `pair`, `disconnect`, `sendCommand`, `sendText`, `sendTouch`
 - `DriverRegistry` — resolves driver for a device, lists supported drivers
 - `DriverRegistryImpl` — injectable implementation registered via `drivers_module`
 - `AndroidTvDriver` — skeleton with capabilities declared, methods throw `DriverNotImplementedException`
 - Driver models: `DriverCapability` (enum), `DriverInfo`, `DriverDevice`, `DriverConnection`, `DriverPairingSession`, `DriverTouchInput` (all freezed)
 - `DriverException` hierarchy: `DriverNotImplementedException`, `DriverConnectionException`, `DriverPairingException`, `DriverCommandException`, `DriverDiscoveryException`
-- SamsungTizenDriver (stub), LgWebOsDriver (stub), CoocaaDriver (stub) — planned
+- SamsungTizenDriver (stub), LgWebOsDriver (stub), CoocaaDriver (stub) — skeleton stubs, methods throw `DriverNotImplementedException`
+- `DriverDeviceMapper` — maps `DriverDevice` → `TvDevice` entity, injectable
 
 ## Discovery
 
-- `abstract interface class DiscoveryProvider` — abstraction for TV discovery
-- `MdnsDiscoveryProvider`, `SsdpDiscoveryProvider`, `ManualDiscoveryProvider` — planned implementations
-- `DiscoveryService` — merges all providers (planned)
+- `abstract interface class DiscoveryProvider` — abstraction for TV discovery; methods: `discover()`, `isSupported()`, `protocols`, `dispose()`
+- `MdnsDiscoveryProvider`, `SsdpDiscoveryProvider`, `ManualDiscoveryProvider` — implemented, return empty streams
+- `DiscoveryRegistry` — manages list of providers, queries `supportedProviders()` per platform
+- `DiscoveryRegistryImpl` — injection-registered implementation
+- `DiscoveryService` — merges all providers, deduplicates by MAC/UUID/IP via `DiscoveryServiceImpl`
+- `DiscoveryResult` — freezed model with `device`, `protocol`, `discoveredAt`
+- `DiscoveryDatasource` — wraps `DiscoveryService`, exposes structured stream
+- `DiscoveryRepositoryImpl` — injectable impl, bridges datasource + driver registry + mapper, emits `TvDevice` stream
 
 ## DI
 

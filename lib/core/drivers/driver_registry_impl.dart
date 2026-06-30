@@ -21,6 +21,14 @@ class DriverRegistryImpl implements DriverRegistry {
   }
 
   @override
+  TvDriver? resolveById(String id) {
+    for (final driver in _drivers) {
+      if (driver.id == id) return driver;
+    }
+    return null;
+  }
+
+  @override
   List<TvDriver> supportedDrivers() =>
       _drivers.where((d) => d.capabilities.isNotEmpty).toList();
 }
