@@ -1,0 +1,19 @@
+targets:
+  $default:
+    builders:
+      injectable_generator:injectable_builder:
+        options:
+          auto_register: false
+          ignore_for_file:
+            - "avoid_annotating_with_dynamic"
+            - "unnecessary_import"
+            - "unused_import"
+            - "unused_local_variable"
+            - "invalid_annotation_target"
+      json_serializable:
+        options:
+          explicit_to_json: true
+          field_rename: snake
+      freezed:
+        options:
+          runtime_equals: true

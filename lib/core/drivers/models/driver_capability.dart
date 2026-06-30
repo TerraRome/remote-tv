@@ -1,0 +1,16 @@
+enum DriverCapability {
+  discovery,
+  pairing,
+  power,
+  volume,
+  mute,
+  home,
+  back,
+  menu,
+  dPad,
+  keyboard,
+  touchpad,
+  mediaControl,
+  voice,
+  appLaunch,
+}
