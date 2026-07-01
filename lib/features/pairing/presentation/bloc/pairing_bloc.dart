@@ -22,8 +22,14 @@ final class PairingBloc extends Bloc<PairingEvent, PairingState> {
   ) async {
     emit(PairingInProgress(event.device));
     try {
-      await _connectionRepository.connect(event.device);
-      emit(PairingSuccess(event.device));
+      final session = await _connectionRepository.startPairing(event.device);
+      emit(
+        PairingAwaitingPin(
+          device: event.device,
+          sessionId: session.sessionId,
+          pin: session.pin,
+        ),
+      );
     } catch (error) {
       emit(PairingError(error.toString()));
     }
@@ -40,7 +46,10 @@ final class PairingBloc extends Bloc<PairingEvent, PairingState> {
     final currentState = state;
     if (currentState is PairingAwaitingPin) {
       try {
-        await _connectionRepository.connect(currentState.device);
+        await _connectionRepository.submitPin(
+          currentState.sessionId,
+          event.pin,
+        );
         emit(PairingSuccess(currentState.device));
       } catch (error) {
         emit(PairingError(error.toString()));

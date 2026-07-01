@@ -61,7 +61,9 @@ class AndroidTvDriver implements TvDriver {
 
   @override
   Stream<DriverDevice> discover() async* {
-    throw const DriverNotImplementedException('android_tv', 'discover');
+    throw const DriverNotImplementedException(
+      'discover not implemented for android_tv',
+    );
   }
 
   @override
@@ -75,16 +77,13 @@ class AndroidTvDriver implements TvDriver {
 
   @override
   Future<DriverPairingSession> pair(DriverDevice device) async {
-    // ponytail: pairing will be implemented in M7.2
-    // For now, connect and return a stub session
     await connect(device);
-    return DriverPairingSession(
-      deviceId: device.id,
-      sessionId: 'pending_${device.id}',
-      pin: 0,
-      isPaired: false,
-      createdAt: DateTime.now(),
-    );
+    return _connectionManager.pair(device);
+  }
+
+  @override
+  Future<bool> submitPin(DriverPairingSession session, String pin) async {
+    return _connectionManager.submitPin(session, pin);
   }
 
   @override

@@ -40,7 +40,9 @@
 - [x] Resolve friendly name
 - [x] Resolve manufacturer
 - [x] Filter Android TV only
-- [ ] Discovery timeout
+- [x] Discovery timeout (5s mDNS lookup, 3s resolve per step)
+- [x] Multi-service-type fallback (\_androidtvremote.\_tcp.local, \_googlecast.\_tcp.local)
+- [x] IP deduplication
 - [ ] Refresh discovery
 
 ## Repository

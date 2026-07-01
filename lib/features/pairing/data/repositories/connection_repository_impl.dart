@@ -1,5 +1,6 @@
 import 'package:injectable/injectable.dart';
 import 'package:hive/hive.dart';
+import '../../../../core/drivers/models/driver_pairing_session.dart';
 import '../../../../core/enums/connection_state.dart';
 import '../../../remote/domain/entities/tv_connection.dart';
 import '../../../discovery/domain/entities/tv_device.dart';
@@ -30,6 +31,16 @@ final class ConnectionRepositoryImpl implements ConnectionRepository {
 
     await _connectionBox.put(device.id, connection);
     return connection;
+  }
+
+  @override
+  Future<DriverPairingSession> startPairing(TvDevice device) async {
+    return _datasource.startPairing(device);
+  }
+
+  @override
+  Future<bool> submitPin(String sessionId, String pin) async {
+    return _datasource.submitPin(sessionId, pin);
   }
 
   @override

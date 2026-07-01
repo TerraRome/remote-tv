@@ -31,7 +31,6 @@ import '../core/drivers/android_tv/transport/secure_socket_transport.dart'
     as _i678;
 import '../core/drivers/di/drivers_module.dart' as _i562;
 import '../core/drivers/driver_registry.dart' as _i605;
-import '../core/drivers/tv_driver.dart' as _i735;
 import '../core/network/dio_client.dart' as _i393;
 import '../core/storage/storage_service.dart' as _i468;
 import '../features/discovery/data/datasources/discovery_datasource.dart'
@@ -122,15 +121,28 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i761.FavoriteRepository>(
       () => _i478.FavoriteRepositoryImpl(gh<_i758.FavoritesDatasource>()),
     );
-    gh.lazySingleton<_i605.DriverRegistry>(
-      () => driversModule.driverRegistry(
-        gh<_i735.TvDriver>(instanceName: 'android_tv'),
-      ),
-    );
     gh.singleton<_i488.AndroidTvPairingManager>(
       () => _i488.AndroidTvPairingManager(
         protocol: gh<_i1061.AndroidTvProtocolHandler>(),
         certificateManager: gh<_i881.CertificateManager>(),
+      ),
+    );
+    gh.factory<_i318.FavoritesBloc>(
+      () => _i318.FavoritesBloc(gh<_i761.FavoriteRepository>()),
+    );
+    gh.singleton<_i145.AndroidTvConnectionManager>(
+      () => _i145.AndroidTvConnectionManager(
+        protocol: gh<_i1061.AndroidTvProtocolHandler>(),
+        transport: gh<_i260.AndroidTvTransport>(),
+      ),
+    );
+    gh.singleton<_i842.AndroidTvDriver>(
+      () => _i842.AndroidTvDriver(gh<_i145.AndroidTvConnectionManager>()),
+      instanceName: 'android_tv',
+    );
+    gh.lazySingleton<_i605.DriverRegistry>(
+      () => driversModule.driverRegistry(
+        gh<_i842.AndroidTvDriver>(instanceName: 'android_tv'),
       ),
     );
     gh.factory<_i742.DiscoveryRepository>(
@@ -140,30 +152,17 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i920.DriverDeviceMapper>(),
       ),
     );
-    gh.factory<_i318.FavoritesBloc>(
-      () => _i318.FavoritesBloc(gh<_i761.FavoriteRepository>()),
-    );
     gh.factory<_i635.PairingDatasource>(
       () => _i635.PairingDatasource(gh<_i605.DriverRegistry>()),
     );
     gh.factory<_i223.RemoteDatasource>(
       () => _i223.RemoteDatasource(gh<_i605.DriverRegistry>()),
     );
-    gh.singleton<_i145.AndroidTvConnectionManager>(
-      () => _i145.AndroidTvConnectionManager(
-        protocol: gh<_i1061.AndroidTvProtocolHandler>(),
-        transport: gh<_i260.AndroidTvTransport>(),
-      ),
-    );
     gh.factory<_i194.ConnectionRepository>(
       () => _i726.ConnectionRepositoryImpl(gh<_i635.PairingDatasource>()),
     );
     gh.factory<_i386.RemoteRepositoryImpl>(
       () => _i386.RemoteRepositoryImpl(gh<_i223.RemoteDatasource>()),
-    );
-    gh.singleton<_i842.AndroidTvDriver>(
-      () => _i842.AndroidTvDriver(gh<_i145.AndroidTvConnectionManager>()),
-      instanceName: 'android_tv',
     );
     gh.factory<_i637.WatchDiscoveredTvs>(
       () => _i637.WatchDiscoveredTvs(gh<_i742.DiscoveryRepository>()),
@@ -175,10 +174,7 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i679.PairingBloc(gh<_i194.ConnectionRepository>()),
     );
     gh.factory<_i819.DiscoveryBloc>(
-      () => _i819.DiscoveryBloc(
-        gh<_i331.DiscoverTvs>(),
-        gh<_i637.WatchDiscoveredTvs>(),
-      ),
+      () => _i819.DiscoveryBloc(gh<_i637.WatchDiscoveredTvs>()),
     );
     return this;
   }

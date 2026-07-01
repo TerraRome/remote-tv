@@ -66,6 +66,7 @@
 - [x] Key event sending
 - [x] Touch event sending
 - [x] Text sending (char → keyCode)
+- [x] DI registration order fix (split-cycle: `@lazySingleton` in `DriversModule`)
 
 ## Milestone 8 - Pairing Feature
 

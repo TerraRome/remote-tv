@@ -16,6 +16,9 @@ final class SecureSocketTransport implements AndroidTvTransport {
   bool _disposed = false;
 
   @override
+  X509Certificate? get serverCertificate => _socket?.peerCertificate;
+
+  @override
   bool get isConnected => _socket != null;
 
   Stream<Uint8List> _rawStream() {

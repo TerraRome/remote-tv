@@ -11,9 +11,9 @@ class DriverRegistryImpl implements DriverRegistry {
   List<TvDriver> get drivers => List.unmodifiable(_drivers);
 
   @override
-  TvDriver? resolve(DriverDevice device) {
+  Future<TvDriver?> resolve(DriverDevice device) async {
     for (final driver in _drivers) {
-      if (driver.supports(device) as bool? ?? false) {
+      if (await driver.supports(device)) {
         return driver;
       }
     }

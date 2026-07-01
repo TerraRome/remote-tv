@@ -6,32 +6,28 @@ import '../../domain/repositories/discovery_repository.dart';
 import '../datasources/discovery_datasource.dart';
 import '../mappers/driver_device_mapper.dart';
 
+const _discoveryTimeout = Duration(seconds: 30);
+
 @Injectable(as: DiscoveryRepository)
 final class DiscoveryRepositoryImpl implements DiscoveryRepository {
   final DiscoveryDatasource _datasource;
   final DriverRegistry _driverRegistry;
   final DriverDeviceMapper _mapper;
-  StreamSubscription<dynamic>? _subscription;
-  final StreamController<TvDevice> _controller =
-      StreamController<TvDevice>.broadcast();
 
   DiscoveryRepositoryImpl(this._datasource, this._driverRegistry, this._mapper);
 
   @override
   Stream<TvDevice> watchDevices() {
-    _subscription?.cancel();
-    _subscription = _datasource.startDiscovery().listen(
-      (result) {
-        final driver = _driverRegistry.resolve(result.device);
-        if (driver == null) return; // No driver — ignore device
-        final tvDevice = _mapper.mapToTvDevice(result.device);
-        _controller.add(tvDevice);
-      },
-      onError: (error, stackTrace) {
-        _controller.addError(error, stackTrace);
-      },
-    );
-    return _controller.stream;
+    return _datasource
+        .startDiscovery()
+        .asyncMap((result) async {
+          final driver = await _driverRegistry.resolve(result.device);
+          if (driver == null) return null;
+          return _mapper.mapToTvDevice(result.device);
+        })
+        .where((d) => d != null)
+        .cast<TvDevice>()
+        .timeout(_discoveryTimeout, onTimeout: (sink) => sink.close());
   }
 
   @override
@@ -40,21 +36,15 @@ final class DiscoveryRepositoryImpl implements DiscoveryRepository {
     final sub = watchDevices().listen((device) {
       devices.add(device);
     });
-    // Listen briefly to collect initial batch
-    await Future<void>.delayed(const Duration(seconds: 3));
+    await Future<void>.delayed(_discoveryTimeout);
     await sub.cancel();
     return devices;
   }
 
   @override
   Future<void> stopDiscovery() async {
-    await _subscription?.cancel();
-    _subscription = null;
     await _datasource.stopDiscovery();
   }
 
-  void dispose() {
-    _subscription?.cancel();
-    _controller.close();
-  }
+  void dispose() {}
 }

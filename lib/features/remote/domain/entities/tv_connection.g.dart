@@ -39,5 +39,7 @@ const _$TvConnectionStateEnumMap = {
   TvConnectionState.connecting: 'connecting',
   TvConnectionState.connected: 'connected',
   TvConnectionState.disconnecting: 'disconnecting',
+  TvConnectionState.pairing: 'pairing',
+  TvConnectionState.paired: 'paired',
   TvConnectionState.failed: 'failed',
 };

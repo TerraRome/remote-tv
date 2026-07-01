@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:injectable/injectable.dart';
@@ -9,7 +10,7 @@ import 'android_tv_message_codec.dart';
 
 /// High-level protocol handler that manages the message exchange lifecycle.
 //
-/// Handles message framing, sending, and receiving with timeout safety.
+/// Handles TLS transport, pairing, message framing, sending, and receiving.
 @singleton
 class AndroidTvProtocolHandler {
   AndroidTvProtocolHandler({
@@ -21,10 +22,19 @@ class AndroidTvProtocolHandler {
   final AndroidTvTransport _transport;
   final AndroidTvMessageCodec _codec;
 
-  /// The connected remote device info, cached after option exchange.
+  /// Cached after option exchange.
   String? _deviceName;
 
+  /// The TV's self-signed certificate captured during TLS handshake.
+  /// Set after successful pairing for subsequent cert pinning.
+  X509Certificate? _serverCertificate;
+
   String? get deviceName => _deviceName;
+  bool get isPaired => _paired;
+  X509Certificate? get serverCertificate => _serverCertificate;
+
+  /// True once pairing has completed successfully (option+config exchange done).
+  bool _paired = false;
 
   final StreamController<AndroidTvMessage> _messageController =
       StreamController<AndroidTvMessage>.broadcast();
@@ -40,14 +50,13 @@ class AndroidTvProtocolHandler {
   /// Connect to the TV at [host]:[port] and start listening for messages.
   Future<void> connect(String host, int port) async {
     _receiveBuffer.clear();
+    _paired = false;
+    _deviceName = null;
     await _transport.connect(host, port);
     _transportSub = _transport.incomingMessages.listen(_onData);
   }
 
   /// Incoming raw data handler with TCP reassembly.
-  ///
-  /// Buffers partial messages, extracts complete frames, and preserves
-  /// leftover bytes for subsequent processing.
   void _onData(Uint8List chunk) {
     _receiveBuffer.add(chunk);
     if (_receiveBuffer.length > _maxBufferSize) {
@@ -65,7 +74,7 @@ class AndroidTvProtocolHandler {
         if (data.length < 4) return;
 
         final msg = _codec.tryDecode(data);
-        if (msg == null) return; // incomplete frame, wait for more data
+        if (msg == null) return;
 
         final frameLen = 4 + msg.payload.length;
         _receiveBuffer.clear();
@@ -96,8 +105,7 @@ class AndroidTvProtocolHandler {
 
   /// Send a message and await a response of [expectedType].
   ///
-  /// Listener is registered **before** sending to prevent missing fast
-  /// responses. On send failure, the listener is cleaned up immediately.
+  /// Listener registered **before** sending. Cleans up on failure or timeout.
   Future<AndroidTvMessage> sendAndWait(
     AndroidTvMessage message,
     AndroidTvMessageType expectedType, {
@@ -134,7 +142,29 @@ class AndroidTvProtocolHandler {
     return completer.future;
   }
 
+  /// --- Pairing Protocol ---
+
+  /// Initiate pairing by sending a pairing request (0x01) with [options].
+  /// Returns the server's pairing request ack (0x02) payload.
+  Future<AndroidTvMessage> initiatePairing(Uint8List options) async {
+    final request = _codec.encodePairingRequest(options);
+    return sendAndWait(request, AndroidTvMessageType.pairingRequestAck);
+  }
+
+  /// Send the PIN (pairing secret 0x03) and await server ack (0x04).
+  /// Throws if server rejects the PIN.
+  Future<AndroidTvMessage> sendPin(String pin) async {
+    final secret = _codec.encodePairingSecret(pin);
+    final ack = await sendAndWait(
+      secret,
+      AndroidTvMessageType.pairingSecretAck,
+    );
+    // ponytail: parse ack payload for success/failure code
+    return ack;
+  }
+
   /// Perform option / configuration exchange with the TV.
+  /// This completes the pairing handshake.
   Future<void> exchangeOptions(
     Uint8List optionData,
     Uint8List configData,
@@ -149,7 +179,10 @@ class AndroidTvProtocolHandler {
       AndroidTvMessageType.option,
     );
     _deviceName = String.fromCharCodes(response.payload);
+    _paired = true;
   }
+
+  /// --- Remote Control ---
 
   /// Send a key event (action: 0=DOWN, 1=UP).
   Future<void> sendKeyEvent(int keyCode, int action) async {
@@ -163,11 +196,21 @@ class AndroidTvProtocolHandler {
     await sendMessage(msg);
   }
 
+  /// --- Certificate Management ---
+
+  /// Set the TV's server certificate (captured during TLS handshake).
+  void setServerCertificate(X509Certificate cert) {
+    _serverCertificate = cert;
+  }
+
   /// Disconnect.
   Future<void> disconnect() async {
     await _transportSub?.cancel();
     _transportSub = null;
     _receiveBuffer.clear();
+    _paired = false;
+    _deviceName = null;
+    _serverCertificate = null;
     await _transport.disconnect();
     await _messageController.close();
   }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import '../drivers/models/driver_device.dart';
 import 'discovery_registry.dart';
 import 'models/discovery_result.dart';
@@ -20,6 +21,9 @@ class DiscoveryServiceImpl implements DiscoveryService {
 
   @override
   Stream<DiscoveryResult> startDiscovery() {
+    debugPrint(
+      '[DiscoveryService] startDiscovery() called, isRunning=$_isRunning',
+    );
     if (_isRunning) return _controller.stream;
     _isRunning = true;
     _seenDeviceKeys.clear();
@@ -31,11 +35,19 @@ class DiscoveryServiceImpl implements DiscoveryService {
 
   Future<void> _startAllProviders() async {
     final providers = await _registry.supportedProviders();
+    debugPrint('[DiscoveryService] providers registered: ${providers.length}');
     for (final provider in providers) {
+      debugPrint('[DiscoveryService] starting provider: ${provider.id}');
       final sub = provider.discover().listen(
         (device) {
           final key = _deviceKey(device);
-          if (key != null && _seenDeviceKeys.contains(key)) return;
+          debugPrint(
+            '[DiscoveryService] device from ${provider.id}: ${device.id} $key',
+          );
+          if (key != null && _seenDeviceKeys.contains(key)) {
+            debugPrint('[DiscoveryService] duplicate skipped: $key');
+            return;
+          }
           if (key != null) _seenDeviceKeys.add(key);
           _controller.add(
             DiscoveryResult(
@@ -46,6 +58,9 @@ class DiscoveryServiceImpl implements DiscoveryService {
           );
         },
         onError: (error, stackTrace) {
+          debugPrint(
+            '[DiscoveryService] provider ${provider.id} error: $error',
+          );
           _controller.addError(error, stackTrace);
         },
       );

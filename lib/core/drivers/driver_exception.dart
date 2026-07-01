@@ -10,29 +10,26 @@ class DriverException implements Exception {
 }
 
 class DriverNotImplementedException extends DriverException {
-  const DriverNotImplementedException(String driverId, String method)
-    : super(
-        '$method not implemented for driver $driverId',
-        code: 'NOT_IMPLEMENTED',
-      );
+  const DriverNotImplementedException(super.message, {super.cause})
+    : super(code: 'NOT_IMPLEMENTED');
 }
 
 class DriverConnectionException extends DriverException {
-  const DriverConnectionException(String message, {Exception? cause})
-    : super(message, code: 'CONNECTION_ERROR', cause: cause);
+  const DriverConnectionException(super.message, {super.cause})
+    : super(code: 'CONNECTION_ERROR');
 }
 
 class DriverPairingException extends DriverException {
-  const DriverPairingException(String message, {Exception? cause})
-    : super(message, code: 'PAIRING_ERROR', cause: cause);
+  const DriverPairingException(super.message, {super.cause})
+    : super(code: 'PAIRING_ERROR');
 }
 
 class DriverCommandException extends DriverException {
-  const DriverCommandException(String message, {Exception? cause})
-    : super(message, code: 'COMMAND_ERROR', cause: cause);
+  const DriverCommandException(super.message, {super.cause})
+    : super(code: 'COMMAND_ERROR');
 }
 
 class DriverDiscoveryException extends DriverException {
-  const DriverDiscoveryException(String message, {Exception? cause})
-    : super(message, code: 'DISCOVERY_ERROR', cause: cause);
+  const DriverDiscoveryException(super.message, {super.cause})
+    : super(code: 'DISCOVERY_ERROR');
 }

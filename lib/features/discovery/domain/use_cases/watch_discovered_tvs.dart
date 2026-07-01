@@ -9,4 +9,6 @@ final class WatchDiscoveredTvs {
   WatchDiscoveredTvs(this._repository);
 
   Stream<TvDevice> call() => _repository.watchDevices();
+
+  Future<void> stop() => _repository.stopDiscovery();
 }

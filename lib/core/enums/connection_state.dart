@@ -3,5 +3,7 @@ enum TvConnectionState {
   connecting,
   connected,
   disconnecting,
+  pairing,
+  paired,
   failed,
 }

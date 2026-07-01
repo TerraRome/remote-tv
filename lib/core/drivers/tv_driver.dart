@@ -17,6 +17,7 @@ abstract interface class TvDriver {
   Stream<DriverDevice> discover();
   Future<DriverConnection> connect(DriverDevice device);
   Future<DriverPairingSession> pair(DriverDevice device);
+  Future<bool> submitPin(DriverPairingSession session, String pin);
   Future<void> disconnect();
   Future<void> sendCommand(RemoteCommand command);
   Future<void> sendText(String text);

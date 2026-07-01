@@ -2,6 +2,27 @@
 
 ## Analyzed: 2026-06-30
 
+### Critical Fix — M7.2c: mDNS Discovery hangs forever
+
+#### Root cause
+
+`MdnsDiscoveryProvider._doDiscovery` used `await for` on `_client!.lookup<PtrResourceRecord>()`.
+This stream **never closes** when no matching mDNS services respond — the call hangs indefinitely
+and no devices are ever emitted. Same issue in `_resolveDevice` for SRV, TXT, and IP lookups.
+
+#### Fix
+
+- PTR lookup: 5s timeout (`_ptrTimeout`)
+- Each DNS resolution step (SRV, TXT, IPv4, IPv6): 3s timeout (`_resolveTimeout`)
+- Added `_googlecast._tcp.local` as fallback service type
+- IP-based deduplication to prevent duplicates
+- Graceful `TimeoutException` handling — yields nothing instead of crashing
+
+#### Impact
+
+Zero false alarm on non-Android TV networks. Under 8s total wait before giving up.
+Previously: infinite spinner.
+
 ### Infrastructure — Done
 
 - [x] Flutter 3.41.3 + FVM

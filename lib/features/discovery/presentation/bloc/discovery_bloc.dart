@@ -1,21 +1,18 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 import '../../domain/entities/tv_device.dart';
-import '../../domain/use_cases/discover_tvs.dart';
 import '../../domain/use_cases/watch_discovered_tvs.dart';
 import 'discovery_event.dart';
 import 'discovery_state.dart';
 
 @injectable
 final class DiscoveryBloc extends Bloc<DiscoveryEvent, DiscoveryState> {
-  final DiscoverTvs _discoverTvs;
   final WatchDiscoveredTvs _watchDiscoveredTvs;
-  StreamSubscription<TvDevice>? _subscription;
   List<TvDevice> _devices = [];
 
-  DiscoveryBloc(this._discoverTvs, this._watchDiscoveredTvs)
-    : super(const DiscoveryInitial()) {
+  DiscoveryBloc(this._watchDiscoveredTvs) : super(const DiscoveryInitial()) {
     on<StartDiscovery>(_onStartDiscovery);
     on<StopDiscovery>(_onStopDiscovery);
     on<RetryDiscovery>(_onRetryDiscovery);
@@ -26,38 +23,36 @@ final class DiscoveryBloc extends Bloc<DiscoveryEvent, DiscoveryState> {
     StartDiscovery event,
     Emitter<DiscoveryState> emit,
   ) async {
+    debugPrint('[DiscoveryBloc] StartDiscovery triggered');
     emit(const DiscoveryLoading());
     _devices = [];
-    try {
-      final initialDevices = await _discoverTvs();
-      _devices.addAll(initialDevices);
-    } catch (error) {
-      emit(DiscoveryError(error.toString()));
-      return;
-    }
-    await _subscription?.cancel();
-    _subscription = _watchDiscoveredTvs().listen(
-      (device) {
+
+    await emit.forEach<TvDevice>(
+      _watchDiscoveredTvs(),
+      onData: (device) {
+        debugPrint(
+          '[DiscoveryBloc] Device received: '
+          '${device.id} ${device.name} ${device.ipAddress}',
+        );
         _devices.add(device);
-        if (!isClosed) {
-          emit(DiscoveryLoaded(List.unmodifiable(_devices)));
-        }
+        return DiscoveryLoaded(List.unmodifiable(_devices));
       },
-      onError: (error) {
-        if (!isClosed) {
-          emit(DiscoveryError(error.toString()));
-        }
+      onError: (error, stackTrace) {
+        debugPrint('[DiscoveryBloc] Error: $error');
+        return DiscoveryError(error.toString());
       },
     );
-    emit(DiscoveryLoaded(List.unmodifiable(_devices)));
+
+    if (_devices.isEmpty) {
+      emit(const DiscoveryEmpty());
+    }
   }
 
   Future<void> _onStopDiscovery(
     StopDiscovery event,
     Emitter<DiscoveryState> emit,
   ) async {
-    await _subscription?.cancel();
-    _subscription = null;
+    await _watchDiscoveredTvs.stop();
     if (_devices.isEmpty) {
       emit(const DiscoveryEmpty());
     } else {
@@ -69,20 +64,10 @@ final class DiscoveryBloc extends Bloc<DiscoveryEvent, DiscoveryState> {
     RetryDiscovery event,
     Emitter<DiscoveryState> emit,
   ) async {
-    await _subscription?.cancel();
-    _subscription = null;
+    await _watchDiscoveredTvs.stop();
     _devices = [];
     add(const StartDiscovery());
   }
 
-  void _onDeviceSelected(DeviceSelected event, Emitter<DiscoveryState> emit) {
-    // Device selected — routing handled by page
-  }
-
-  @override
-  Future<void> close() async {
-    await _subscription?.cancel();
-    _subscription = null;
-    await super.close();
-  }
+  void _onDeviceSelected(DeviceSelected event, Emitter<DiscoveryState> emit) {}
 }

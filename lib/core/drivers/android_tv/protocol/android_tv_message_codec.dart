@@ -65,6 +65,24 @@ class AndroidTvMessageCodec {
     );
   }
 
+  /// Encode a pairing request (type 0x01).
+  AndroidTvMessage encodePairingRequest(Uint8List options) {
+    return AndroidTvMessage(
+      type: AndroidTvMessageType.pairingRequest,
+      payload: options,
+    );
+  }
+
+  /// Encode a pairing secret (PIN) message (type 0x03).
+  /// PIN is sent as UTF-8 string bytes.
+  AndroidTvMessage encodePairingSecret(String pin) {
+    final bytes = Uint8List.fromList(pin.codeUnits);
+    return AndroidTvMessage(
+      type: AndroidTvMessageType.pairingSecret,
+      payload: bytes,
+    );
+  }
+
   /// Encode a key input event.
   /// [action]: 0 = DOWN, 1 = UP
   AndroidTvMessage encodeInput(int keyCode, int action) {
