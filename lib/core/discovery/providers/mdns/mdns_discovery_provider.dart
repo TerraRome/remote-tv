@@ -14,8 +14,8 @@ class MdnsDiscoveryProvider implements DiscoveryProvider {
     '_googlecast._tcp.local',
   ];
 
-  static const Duration _ptrTimeout = Duration(seconds: 5);
-  static const Duration _resolveTimeout = Duration(seconds: 3);
+  static const Duration _ptrTimeout = Duration(seconds: 3);
+  static const Duration _resolveTimeout = Duration(seconds: 2);
 
   @override
   String get id => 'mdns';

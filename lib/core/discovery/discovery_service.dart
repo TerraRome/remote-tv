@@ -16,6 +16,7 @@ class DiscoveryServiceImpl implements DiscoveryService {
   final StreamController<DiscoveryResult> _controller =
       StreamController<DiscoveryResult>.broadcast();
   bool _isRunning = false;
+  int _activeProviders = 0;
 
   DiscoveryServiceImpl(this._registry);
 
@@ -33,9 +34,20 @@ class DiscoveryServiceImpl implements DiscoveryService {
     return _controller.stream;
   }
 
+  void _onProviderDone() {
+    _activeProviders--;
+    if (_activeProviders <= 0 && _isRunning) {
+      _isRunning = false;
+      if (!_controller.isClosed) {
+        _controller.close();
+      }
+    }
+  }
+
   Future<void> _startAllProviders() async {
     final providers = await _registry.supportedProviders();
     debugPrint('[DiscoveryService] providers registered: ${providers.length}');
+    _activeProviders = providers.length;
     for (final provider in providers) {
       debugPrint('[DiscoveryService] starting provider: ${provider.id}');
       final sub = provider.discover().listen(
@@ -61,8 +73,12 @@ class DiscoveryServiceImpl implements DiscoveryService {
           debugPrint(
             '[DiscoveryService] provider ${provider.id} error: $error',
           );
-          _controller.addError(error, stackTrace);
+          if (!_controller.isClosed) {
+            _controller.addError(error, stackTrace);
+          }
         },
+        onDone: _onProviderDone,
+        cancelOnError: false,
       );
       _subscriptions[provider.id] = sub;
     }
@@ -87,6 +103,7 @@ class DiscoveryServiceImpl implements DiscoveryService {
 
   @override
   Future<void> stopDiscovery() async {
+    _activeProviders = 0;
     for (final sub in _subscriptions.values) {
       await sub.cancel();
     }
@@ -97,6 +114,8 @@ class DiscoveryServiceImpl implements DiscoveryService {
 
   void dispose() {
     unawaited(stopDiscovery());
-    _controller.close();
+    if (!_controller.isClosed) {
+      _controller.close();
+    }
   }
 }
