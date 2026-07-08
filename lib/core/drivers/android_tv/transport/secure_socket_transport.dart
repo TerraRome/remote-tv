@@ -104,7 +104,8 @@ final class CombinedTransport implements AndroidTvTransport {
     // Set up stream listener
     _subscription = _rawStream().listen(
       (data) {
-        debugPrint('[CombinedTransport] received ${data.length} bytes');
+        debugPrint('[CombinedTransport] received ${data.length} bytes hex: '
+            '${data.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ')}');
         _messageController.add(data);
       },
       onError: (e) {

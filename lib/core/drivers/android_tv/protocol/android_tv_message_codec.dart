@@ -31,21 +31,36 @@ class AndroidTvMessageCodec {
 
   /// Try to decode a single complete message from [data].
   /// Returns null if not enough data is available.
+  /// Tries big-endian first (Android TV remote protocol standard),
+  /// then little-endian (some Xiaomi/Mi TV devices).
   AndroidTvMessage? tryDecode(Uint8List data) {
     if (data.length < 4) return null;
-    final view = data.buffer.asByteData();
-    final typeCode = view.getUint16(0, Endian.big);
-    final payloadLen = view.getUint16(2, Endian.big);
-    if (payloadLen > maxPayloadSize) {
-      throw FormatException('Payload too large: $payloadLen');
+
+    AndroidTvMessage? decode(Endian endian) {
+      try {
+        final view = ByteData.view(data.buffer, data.offsetInBytes, data.length);
+        final typeCode = view.getUint16(0, endian);
+        final payloadLen = view.getUint16(2, endian);
+        if (payloadLen > maxPayloadSize) return null;
+        if (data.length < 4 + payloadLen) return null;
+        final type = AndroidTvMessageType.fromCode(typeCode);
+        final payload = Uint8List(payloadLen);
+        if (payloadLen > 0) {
+          payload.setRange(0, payloadLen, data.sublist(4, 4 + payloadLen));
+        }
+        return AndroidTvMessage(type: type, payload: payload);
+      } on Exception {
+        return null;
+      }
     }
-    if (data.length < 4 + payloadLen) return null;
-    final type = AndroidTvMessageType.fromCode(typeCode);
-    final payload = Uint8List(payloadLen);
-    if (payloadLen > 0) {
-      payload.setRange(0, payloadLen, data.sublist(4, 4 + payloadLen));
-    }
-    return AndroidTvMessage(type: type, payload: payload);
+
+    final be = decode(Endian.big);
+    if (be != null && be.type != AndroidTvMessageType.unknown) return be;
+
+    final le = decode(Endian.little);
+    if (le != null && le.type != AndroidTvMessageType.unknown) return le;
+
+    return be;
   }
 
   /// Encode an option exchange message.

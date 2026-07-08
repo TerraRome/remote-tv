@@ -17,7 +17,7 @@ import 'android_tv_connection_manager.dart';
 class AndroidTvDriver implements TvDriver {
   final AndroidTvConnectionManager _connectionManager;
 
-  static const List<int> _ports = [6466, 5555, 7250, 8010];
+  static const List<int> _ports = [6466, 5555, 7250, 8010, 8009];
 
   AndroidTvDriver(this._connectionManager);
 
