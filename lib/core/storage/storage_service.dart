@@ -7,9 +7,13 @@ import '../constants/storage_keys.dart';
 final class StorageService {
   late Box _box;
 
+  // Named boxes
+  static const String connectionsBoxName = 'connections';
+
   Future<void> init() async {
     await Hive.initFlutter();
     _box = await Hive.openBox(StorageKeys.hiveBoxName);
+    await Hive.openBox(connectionsBoxName); // for TvConnection storage
   }
 
   T? get<T>(String key) => _box.get(key) as T?;

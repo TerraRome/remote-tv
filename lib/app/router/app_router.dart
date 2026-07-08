@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../di/injection.dart';
 import '../../features/discovery/presentation/bloc/discovery_bloc.dart';
 import '../../features/discovery/presentation/pages/discovery_page.dart';
+import '../../features/discovery/domain/entities/tv_device.dart';
 import '../../features/pairing/presentation/bloc/pairing_bloc.dart';
 import '../../features/pairing/presentation/pages/pairing_page.dart';
 import '../../features/remote/presentation/bloc/remote_bloc.dart';
@@ -27,10 +28,13 @@ final class AppRouter {
       GoRoute(
         path: '/pair/:deviceId',
         name: 'pair',
-        builder: (context, state) => BlocProvider(
-          create: (_) => getIt<PairingBloc>(),
-          child: PairingPage(bloc: getIt<PairingBloc>()),
-        ),
+        builder: (context, state) {
+          final device = state.extra as TvDevice;
+          return BlocProvider(
+            create: (_) => getIt<PairingBloc>(),
+            child: PairingPage(device: device),
+          );
+        },
       ),
       GoRoute(
         path: '/favorites',

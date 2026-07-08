@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../driver_exception.dart';
@@ -27,9 +27,14 @@ final class SecureSocketTransport implements AndroidTvTransport {
 
   @override
   Future<void> connect(String host, int port) async {
-    if (_disposed) throw StateError('Transport disposed');
+    debugPrint('[SecureSocketTransport] connect() $host:$port');
+    if (_disposed) {
+      debugPrint('[SecureSocketTransport] connect FAILED - disposed');
+      throw StateError('Transport disposed');
+    }
     await disconnect();
     try {
+      debugPrint('[SecureSocketTransport] establishing TLS connection...');
       _socket = await SecureSocket.connect(
         host,
         port,
@@ -37,9 +42,16 @@ final class SecureSocketTransport implements AndroidTvTransport {
         // ponytail: add certificate pinning after pairing
         onBadCertificate: (cert) => true,
       );
+      debugPrint(
+        '[SecureSocketTransport] TLS connected, peerCert=${_socket?.peerCertificate?.issuer}',
+      );
       _subscription = _rawStream().listen(
-        (data) => _messageController.add(data),
+        (data) {
+          debugPrint('[SecureSocketTransport] received ${data.length} bytes');
+          _messageController.add(data);
+        },
         onError: (e) {
+          debugPrint('[SecureSocketTransport] stream error: $e');
           if (!_messageController.isClosed) {
             _messageController.addError(
               DriverConnectionException(
@@ -50,22 +62,26 @@ final class SecureSocketTransport implements AndroidTvTransport {
           }
         },
         onDone: () {
+          debugPrint('[SecureSocketTransport] stream done');
           if (!_messageController.isClosed) {
             _messageController.close();
           }
         },
       );
     } on SocketException catch (e) {
+      debugPrint('[SecureSocketTransport] SocketException: ${e.message}');
       throw DriverConnectionException(
         'Connection to $host:$port failed: ${e.message}',
         cause: e,
       );
     } on HandshakeException catch (e) {
+      debugPrint('[SecureSocketTransport] HandshakeException: ${e.message}');
       throw DriverConnectionException(
         'TLS handshake with $host:$port failed: ${e.message}',
         cause: e,
       );
     } on TimeoutException catch (e) {
+      debugPrint('[SecureSocketTransport] TimeoutException');
       throw DriverConnectionException(
         'Connection to $host:$port timed out',
         cause: e,
@@ -75,21 +91,28 @@ final class SecureSocketTransport implements AndroidTvTransport {
 
   @override
   Future<void> disconnect() async {
+    debugPrint('[SecureSocketTransport] disconnect()');
     await _subscription?.cancel();
     _subscription = null;
     try {
       await _socket?.close();
-    } catch (_) {}
+      debugPrint('[SecureSocketTransport] socket closed');
+    } catch (e) {
+      debugPrint('[SecureSocketTransport] close error: $e');
+    }
     _socket = null;
   }
 
   @override
   Future<void> send(Uint8List data) async {
+    debugPrint('[SecureSocketTransport] send ${data.length} bytes');
     if (_socket == null) {
+      debugPrint('[SecureSocketTransport] send FAILED - not connected');
       throw DriverConnectionException('Not connected');
     }
     _socket!.add(data);
     await _socket!.flush();
+    debugPrint('[SecureSocketTransport] send flushed');
   }
 
   @override

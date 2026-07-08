@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import '../../../discovery/domain/entities/tv_device.dart';
 import '../bloc/pairing_bloc.dart';
 import '../bloc/pairing_event.dart';
 import '../bloc/pairing_state.dart';
@@ -9,18 +11,30 @@ import '../widgets/pairing_success.dart';
 import '../widgets/pairing_error.dart';
 
 final class PairingPage extends StatelessWidget {
-  final PairingBloc bloc;
-
-  const PairingPage({super.key, required this.bloc});
+  final TvDevice device;
+  const PairingPage({super.key, required this.device});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider.value(value: bloc, child: const _PairingView());
+    return _PairingView(device: device);
   }
 }
 
-final class _PairingView extends StatelessWidget {
-  const _PairingView();
+final class _PairingView extends StatefulWidget {
+  final TvDevice device;
+  const _PairingView({required this.device});
+
+  @override
+  State<_PairingView> createState() => _PairingViewState();
+}
+
+final class _PairingViewState extends State<_PairingView> {
+  @override
+  void initState() {
+    super.initState();
+    // Start pairing immediately with the selected device
+    context.read<PairingBloc>().add(InitiatePairing(widget.device));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,12 +51,12 @@ final class _PairingView extends StatelessWidget {
               ),
             );
           }
+          if (state is PairingSuccess) {
+            context.push('/remote/${state.device.id}');
+          }
         },
         builder: (context, state) {
           return switch (state) {
-            PairingIdle() => const Center(
-              child: Text('Select a device to pair'),
-            ),
             PairingInProgress() => const PairingLoading(),
             PairingAwaitingPin() => const PairingLoading(),
             PairingSuccess() => const PairingSuccessView(),
@@ -51,6 +65,7 @@ final class _PairingView extends StatelessWidget {
               onRetry: () =>
                   context.read<PairingBloc>().add(const CancelPairing()),
             ),
+            _ => const PairingLoading(),
           };
         },
       ),

@@ -32,7 +32,7 @@ final class DiscoveryPage extends StatelessWidget {
             DiscoveryLoaded(:final devices) => DiscoveryList(
               devices: devices,
               onDeviceTap: (device) {
-                context.push('/pair/${device.id}');
+                context.push('/pair/${device.id}', extra: device);
               },
             ),
             DiscoveryError(:final message) => DiscoveryErrorWidget(

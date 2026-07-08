@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 import '../../domain/repositories/connection_repository.dart';
@@ -20,9 +21,16 @@ final class PairingBloc extends Bloc<PairingEvent, PairingState> {
     InitiatePairing event,
     Emitter<PairingState> emit,
   ) async {
+    debugPrint(
+      '[PairingBloc] InitiatePairing device=${event.device.id} name=${event.device.name}',
+    );
     emit(PairingInProgress(event.device));
     try {
+      debugPrint('[PairingBloc] calling startPairing...');
       final session = await _connectionRepository.startPairing(event.device);
+      debugPrint(
+        '[PairingBloc] startPairing returned sessionId=${session.sessionId} pin=${session.pin}',
+      );
       emit(
         PairingAwaitingPin(
           device: event.device,

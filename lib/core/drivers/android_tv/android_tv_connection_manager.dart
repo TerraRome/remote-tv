@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../enums/connection_state.dart';
@@ -51,18 +51,27 @@ class AndroidTvConnectionManager {
     int maxRetries = 3,
     Duration retryDelay = const Duration(seconds: 2),
   }) async {
+    debugPrint(
+      '[AndroidTvConnMgr] connect() ${device.ipAddress}:${device.port}',
+    );
     if (_disposed) throw StateError('Connection manager disposed');
-    if (isConnected) await disconnect();
+    if (isConnected) {
+      debugPrint('[AndroidTvConnMgr] already connected, disconnecting first');
+      await disconnect();
+    }
 
     final port = device.port == 0 ? 6466 : device.port;
     _connectionStateController.add(TvConnectionState.connecting);
 
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
+      debugPrint('[AndroidTvConnMgr] connect attempt $attempt/$maxRetries');
       try {
         await _protocol.connect(device.ipAddress, port);
+        debugPrint('[AndroidTvConnMgr] protocol connected OK');
         _connectedDevice = device;
         _connectedAt = DateTime.now();
         _connectionStateController.add(TvConnectionState.connected);
+        debugPrint('[AndroidTvConnMgr] connected to ${device.ipAddress}:$port');
         return DriverConnection(
           deviceId: device.id,
           driverId: 'android_tv',
@@ -72,13 +81,17 @@ class AndroidTvConnectionManager {
           connectedAt: _connectedAt!,
           lastActivityAt: _connectedAt,
         );
-      } on DriverException catch (_) {
+      } on DriverException catch (e) {
+        debugPrint(
+          '[AndroidTvConnMgr] DriverException on attempt $attempt: $e',
+        );
         if (attempt >= maxRetries) {
           _connectionStateController.add(TvConnectionState.failed);
           rethrow;
         }
         await Future<void>.delayed(retryDelay);
       } catch (e) {
+        debugPrint('[AndroidTvConnMgr] error on attempt $attempt: $e');
         if (attempt >= maxRetries) {
           _connectionStateController.add(TvConnectionState.failed);
           throw DriverConnectionException(
@@ -103,25 +116,31 @@ class AndroidTvConnectionManager {
   ///
   /// The returned session contains the PIN the TV displayed.
   Future<DriverPairingSession> pair(DriverDevice device) async {
+    debugPrint('[AndroidTvConnMgr] pair() device=${device.id}');
     if (_disposed) throw StateError('Connection manager disposed');
     if (!isConnected) {
+      debugPrint('[AndroidTvConnMgr] pair FAILED - not connected');
       throw DriverConnectionException('Not connected - call connect() first');
     }
 
     // Step 1: Option exchange - request pairing
     _connectionStateController.add(TvConnectionState.connecting);
+    debugPrint('[AndroidTvConnMgr] exchanging options...');
     await _protocol.exchangeOptions(
       Uint8List.fromList([0x01]), // pairing option
       Uint8List.fromList('Remote App'.codeUnits), // client name
     );
+    debugPrint('[AndroidTvConnMgr] options exchanged OK');
 
     // Step 2: Initiate pairing - TV shows PIN
+    debugPrint('[AndroidTvConnMgr] initiating pairing...');
     final ack = await _protocol.initiatePairing(Uint8List.fromList([0x01]));
+    debugPrint(
+      '[AndroidTvConnMgr] initiate pairing ack received, payload len=${ack.payload.length}',
+    );
     // ponytail: parse ack payload for PIN
-    // The PIN displayed on TV is extracted from the pairing request ack payload.
-    // Format varies; for now, generate a dummy PIN and let the data source
-    // handle actual extraction.
     final pin = _parsePinFromAck(ack.payload);
+    debugPrint('[AndroidTvConnMgr] parsed PIN: $pin');
 
     _connectionStateController.add(TvConnectionState.pairing);
     return DriverPairingSession(
@@ -139,34 +158,44 @@ class AndroidTvConnectionManager {
   /// Must be called after [pair] returns the session with the PIN.
   /// Returns true if pairing succeeded.
   Future<bool> submitPin(DriverPairingSession session, String pin) async {
-    if (_disposed) throw StateError('Connection manager disposed');
+    debugPrint(
+      '[AndroidTvConnMgr] submitPin() sessionId=${session.sessionId} pin=$pin',
+    );
+    if (_disposed) {
+      debugPrint('[AndroidTvConnMgr] submitPin FAILED - disposed');
+      throw StateError('Connection manager disposed');
+    }
     if (!isConnected) {
+      debugPrint('[AndroidTvConnMgr] submitPin FAILED - not connected');
       throw DriverConnectionException('Not connected');
     }
 
     try {
       // Step 3: Send the PIN
-      final secretAck = await _protocol.sendPin(pin);
-      // ponytail: check secretAck payload for success/failure
-      // ignore: unused_local_variable
-      secretAck;
+      debugPrint('[AndroidTvConnMgr] sending PIN to TV...');
+      await _protocol.sendPin(pin);
+      debugPrint('[AndroidTvConnMgr] PIN sent');
 
       // Step 4: Configuration exchange (certificates)
-      // Capture the server certificate from TLS for pinning
       final serverCert = _transport.serverCertificate;
       if (serverCert != null) {
+        debugPrint('[AndroidTvConnMgr] setting server certificate');
         _protocol.setServerCertificate(serverCert);
       }
 
       // Exchange client configuration / certificate
-      // ponytail: send actual client cert once certificate manager is wired
+      debugPrint('[AndroidTvConnMgr] exchanging final options...');
       await _protocol.exchangeOptions(
         Uint8List.fromList([0x01]),
         Uint8List.fromList('Remote App (paired)'.codeUnits),
       );
+      debugPrint('[AndroidTvConnMgr] final options exchanged OK');
 
-      return _protocol.isPaired;
+      final paired = _protocol.isPaired;
+      debugPrint('[AndroidTvConnMgr] pairing result: isPaired=$paired');
+      return paired;
     } catch (e) {
+      debugPrint('[AndroidTvConnMgr] submitPin error: $e');
       throw DriverPairingException(
         'Pairing failed: $e',
         cause: e is Exception ? e : null,
@@ -190,10 +219,14 @@ class AndroidTvConnectionManager {
 
   /// Disconnect from the TV.
   Future<void> disconnect() async {
+    debugPrint('[AndroidTvConnMgr] disconnect()');
     _connectionStateController.add(TvConnectionState.disconnecting);
     try {
       await _protocol.disconnect();
-    } catch (_) {}
+      debugPrint('[AndroidTvConnMgr] protocol disconnected');
+    } catch (e) {
+      debugPrint('[AndroidTvConnMgr] disconnect error: $e');
+    }
     _connectedDevice = null;
     _connectedAt = null;
     _connectionStateController.add(TvConnectionState.disconnected);
@@ -201,7 +234,11 @@ class AndroidTvConnectionManager {
 
   /// Send a key event using the remote protocol.
   Future<void> sendKeyEvent(int keyCode, {int action = 0}) async {
+    debugPrint(
+      '[AndroidTvConnMgr] sendKeyEvent keyCode=$keyCode action=$action',
+    );
     if (!isConnected) {
+      debugPrint('[AndroidTvConnMgr] sendKeyEvent FAILED - not connected');
       throw DriverConnectionException('Not connected to device');
     }
     try {
@@ -209,7 +246,9 @@ class AndroidTvConnectionManager {
       if (action == 0) {
         await _protocol.sendKeyEvent(keyCode, 1);
       }
+      debugPrint('[AndroidTvConnMgr] key event sent OK');
     } catch (e) {
+      debugPrint('[AndroidTvConnMgr] key event error: $e');
       throw DriverCommandException(
         'Key event failed: $e',
         cause: e is Exception ? e : null,
@@ -219,12 +258,16 @@ class AndroidTvConnectionManager {
 
   /// Send a touch event using the remote protocol.
   Future<void> sendTouchEvent(int action, double x, double y) async {
+    debugPrint('[AndroidTvConnMgr] sendTouchEvent action=$action x=$x y=$y');
     if (!isConnected) {
+      debugPrint('[AndroidTvConnMgr] sendTouchEvent FAILED - not connected');
       throw DriverConnectionException('Not connected to device');
     }
     try {
       await _protocol.sendTouchEvent(action, x, y);
+      debugPrint('[AndroidTvConnMgr] touch event sent OK');
     } catch (e) {
+      debugPrint('[AndroidTvConnMgr] touch event error: $e');
       throw DriverCommandException(
         'Touch event failed: $e',
         cause: e is Exception ? e : null,
@@ -234,17 +277,23 @@ class AndroidTvConnectionManager {
 
   /// Send text by translating each character to key events.
   Future<void> sendText(String text) async {
+    debugPrint('[AndroidTvConnMgr] sendText text="$text"');
     if (!isConnected) {
+      debugPrint('[AndroidTvConnMgr] sendText FAILED - not connected');
       throw DriverConnectionException('Not connected to device');
     }
     try {
+      int sent = 0;
       for (final char in text.runes) {
         final keyCode = charCodeToAndroidKeyCode(char);
         if (keyCode != null) {
           await sendKeyEvent(keyCode);
+          sent++;
         }
       }
+      debugPrint('[AndroidTvConnMgr] sendText sent $sent characters');
     } catch (e) {
+      debugPrint('[AndroidTvConnMgr] sendText error: $e');
       throw DriverCommandException(
         'Send text failed: $e',
         cause: e is Exception ? e : null,

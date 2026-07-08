@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 
 import '../transport/android_tv_transport.dart';
@@ -49,11 +50,14 @@ class AndroidTvProtocolHandler {
 
   /// Connect to the TV at [host]:[port] and start listening for messages.
   Future<void> connect(String host, int port) async {
+    debugPrint('[ProtocolHandler] connect() $host:$port');
     _receiveBuffer.clear();
     _paired = false;
     _deviceName = null;
     await _transport.connect(host, port);
+    debugPrint('[ProtocolHandler] transport connected, setting up listener');
     _transportSub = _transport.incomingMessages.listen(_onData);
+    debugPrint('[ProtocolHandler] connect complete');
   }
 
   /// Incoming raw data handler with TCP reassembly.
@@ -99,8 +103,13 @@ class AndroidTvProtocolHandler {
 
   /// Send a raw message.
   Future<void> sendMessage(AndroidTvMessage message) async {
+    debugPrint(
+      '[ProtocolHandler] sendMessage type=${message.type} payloadLen=${message.payload.length}',
+    );
     final encoded = _codec.encode(message);
+    debugPrint('[ProtocolHandler] encoded ${encoded.length} bytes');
     await _transport.send(encoded);
+    debugPrint('[ProtocolHandler] sendMessage OK');
   }
 
   /// Send a message and await a response of [expectedType].
@@ -147,17 +156,33 @@ class AndroidTvProtocolHandler {
   /// Initiate pairing by sending a pairing request (0x01) with [options].
   /// Returns the server's pairing request ack (0x02) payload.
   Future<AndroidTvMessage> initiatePairing(Uint8List options) async {
+    debugPrint(
+      '[ProtocolHandler] initiatePairing optionsLen=${options.length}',
+    );
     final request = _codec.encodePairingRequest(options);
-    return sendAndWait(request, AndroidTvMessageType.pairingRequestAck);
+    debugPrint('[ProtocolHandler] encoded pairing request, waiting for ack');
+    final ack = await sendAndWait(
+      request,
+      AndroidTvMessageType.pairingRequestAck,
+    );
+    debugPrint(
+      '[ProtocolHandler] initiatePairing ack received, payloadLen=${ack.payload.length}',
+    );
+    return ack;
   }
 
   /// Send the PIN (pairing secret 0x03) and await server ack (0x04).
   /// Throws if server rejects the PIN.
   Future<AndroidTvMessage> sendPin(String pin) async {
+    debugPrint('[ProtocolHandler] sendPin pin=$pin');
     final secret = _codec.encodePairingSecret(pin);
+    debugPrint('[ProtocolHandler] encoded pairing secret, waiting for ack');
     final ack = await sendAndWait(
       secret,
       AndroidTvMessageType.pairingSecretAck,
+    );
+    debugPrint(
+      '[ProtocolHandler] sendPin ack received, payloadLen=${ack.payload.length}',
     );
     // ponytail: parse ack payload for success/failure code
     return ack;
@@ -169,8 +194,13 @@ class AndroidTvProtocolHandler {
     Uint8List optionData,
     Uint8List configData,
   ) async {
+    debugPrint(
+      '[ProtocolHandler] exchangeOptions optionLen=${optionData.length} configLen=${configData.length}',
+    );
     await sendMessage(_codec.encodeOption(optionData));
+    debugPrint('[ProtocolHandler] option sent, sending configuration');
     await sendMessage(_codec.encodeConfiguration(configData));
+    debugPrint('[ProtocolHandler] config sent, waiting for response');
     final response = await sendAndWait(
       AndroidTvMessage(
         type: AndroidTvMessageType.option,
@@ -180,6 +210,9 @@ class AndroidTvProtocolHandler {
     );
     _deviceName = String.fromCharCodes(response.payload);
     _paired = true;
+    debugPrint(
+      '[ProtocolHandler] exchangeOptions complete, paired=$_paired deviceName=$_deviceName',
+    );
   }
 
   /// --- Remote Control ---
