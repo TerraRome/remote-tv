@@ -12,9 +12,13 @@ class MdnsDiscoveryProvider implements DiscoveryProvider {
   static const List<String> _serviceTypes = [
     '_androidtvremote._tcp.local',
     '_googlecast._tcp.local',
+    '_atv-remote._tcp.local',
+    '_mi-remote._tcp.local',
+    '_miio._tcp.local',
+    '_android-tv._tcp.local',
   ];
 
-  static const Duration _ptrTimeout = Duration(seconds: 3);
+  static const Duration _ptrTimeout = Duration(seconds: 5);
   static const Duration _resolveTimeout = Duration(seconds: 2);
 
   @override
@@ -173,15 +177,15 @@ class MdnsDiscoveryProvider implements DiscoveryProvider {
         return null;
       }
 
-      final key = '$ipAddress:$port';
-      if (seen.contains(key)) {
-        debugPrint('[mDNS] duplicate: $key');
+      // Dedup by IP only (same TV can advertise on multiple ports)
+      if (seen.contains(ipAddress)) {
+        debugPrint('[mDNS] duplicate IP: $ipAddress');
         return null;
       }
-      seen.add(key);
+      seen.add(ipAddress);
 
       final name = serviceName.replaceFirst('.$serviceType', '');
-      final id = 'android-tv-${ipAddress.replaceAll('.', '-')}-$port';
+      final id = 'android-tv-${ipAddress.replaceAll('.', '-')}';
       final modelName = txtData['model'] ?? name;
       final manufacturer = txtData['manufacturer'] ?? 'Google';
 
