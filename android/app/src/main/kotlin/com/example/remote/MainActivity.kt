@@ -15,9 +15,8 @@ import javax.net.ssl.X509TrustManager
 import javax.net.ssl.SSLContext
 
 class MainActivity : FlutterActivity() {
-  private var sslSocket: SSLSocket? = null
-  private var readThread: Thread? = null
-  private var running = false
+  @Volatile private var sslSocket: SSLSocket? = null
+  @Volatile private var running = false
   private var eventSink: EventChannel.EventSink? = null
   private val handler = Handler(Looper.getMainLooper())
 
@@ -103,18 +102,28 @@ class MainActivity : FlutterActivity() {
 
   private fun send(data: ByteArray, result: MethodChannel.Result) {
     try {
-      sslSocket?.outputStream?.write(data)
-      sslSocket?.outputStream?.flush()
+      val s = sslSocket
+      if (s == null) {
+        handler.post { result.error("SEND_ERROR", "socket null", null) }
+        return
+      }
+      s.outputStream.write(data)
+      s.outputStream.flush()
       handler.post { result.success(true) }
     } catch (e: Exception) {
-      handler.post { result.error("SEND_ERROR", e.message, null) }
+      android.util.Log.e("TLS_SOCKET", "send error", e)
+      handler.post {
+        result.error(
+          "SEND_ERROR",
+          e.message ?: e.javaClass.name,
+          android.util.Log.getStackTraceString(e),
+        )
+      }
     }
   }
 
   private fun disconnect(result: MethodChannel.Result? = null) {
     running = false
-    readThread?.interrupt()
-    readThread = null
     try {
       sslSocket?.close()
     } catch (_: Exception) {}
