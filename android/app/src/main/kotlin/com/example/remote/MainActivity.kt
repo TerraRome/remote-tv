@@ -17,6 +17,8 @@ import javax.net.ssl.SSLContext
 class MainActivity : FlutterActivity() {
   @Volatile private var sslSocket: SSLSocket? = null
   @Volatile private var running = false
+  @Volatile private var connectReplied = false
+  @Volatile private var disconnecting = false
   private var eventSink: EventChannel.EventSink? = null
   private val handler = Handler(Looper.getMainLooper())
 
@@ -77,6 +79,7 @@ class MainActivity : FlutterActivity() {
 
         sslSocket = socket
         running = true
+        connectReplied = true
 
         handler.post { result.success(true) }
 
@@ -95,7 +98,10 @@ class MainActivity : FlutterActivity() {
         }
       } catch (e: Exception) {
         running = false
-        handler.post { result.error("TLS_ERROR", e.message ?: e.toString(), null) }
+        if (!connectReplied && !disconnecting) {
+          connectReplied = true
+          handler.post { result.error("TLS_ERROR", e.message ?: e.toString(), null) }
+        }
       }
     }.start()
   }
@@ -123,7 +129,9 @@ class MainActivity : FlutterActivity() {
   }
 
   private fun disconnect(result: MethodChannel.Result? = null) {
+    disconnecting = true
     running = false
+    connectReplied = false
     try {
       sslSocket?.close()
     } catch (_: Exception) {}
