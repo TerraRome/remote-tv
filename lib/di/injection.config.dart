@@ -27,6 +27,7 @@ import '../core/drivers/android_tv/protocol/android_tv_protocol_handler.dart'
     as _i1061;
 import '../core/drivers/android_tv/transport/android_tv_transport.dart'
     as _i260;
+import '../core/drivers/android_tv/transport/native_tls_socket.dart' as _i415;
 import '../core/drivers/android_tv/transport/secure_socket_transport.dart'
     as _i678;
 import '../core/drivers/di/drivers_module.dart' as _i562;
@@ -98,7 +99,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => discoveryModule.mdnsProvider,
       instanceName: 'mdns',
     );
-    gh.singleton<_i260.AndroidTvTransport>(() => _i678.CombinedTransport());
     gh.singleton<_i221.DiscoveryProvider>(
       () => discoveryModule.manualProvider,
       instanceName: 'manual',
@@ -106,8 +106,13 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i567.DiscoveryDatasource>(
       () => _i567.DiscoveryDatasourceImpl(gh<_i418.DiscoveryService>()),
     );
+    gh.singleton<_i260.AndroidTvTransport>(() => _i415.NativeTlsSocket());
     gh.factory<_i976.RemoteBloc>(
       () => _i976.RemoteBloc(gh<_i718.RemoteRepository>()),
+    );
+    gh.singleton<_i678.CombinedTransport>(
+      () => _i678.CombinedTransport(),
+      instanceName: 'combined',
     );
     gh.singleton<_i881.CertificateManager>(
       () => _i881.CertificateManager(storage: gh<_i468.StorageService>()),

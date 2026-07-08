@@ -9,7 +9,8 @@ import 'android_tv_transport.dart';
 
 /// Combined transport: tries TLS first, falls back to raw TCP if TV
 /// doesn't support TLS on the remote protocol port.
-@Singleton(as: AndroidTvTransport)
+@Named('combined')
+@Singleton()
 final class CombinedTransport implements AndroidTvTransport {
   Socket? _socket;
   final _messageController = StreamController<Uint8List>.broadcast();
