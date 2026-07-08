@@ -25,6 +25,8 @@ import '../core/drivers/android_tv/protocol/android_tv_message_codec.dart'
     as _i12;
 import '../core/drivers/android_tv/protocol/android_tv_protocol_handler.dart'
     as _i1061;
+import '../core/drivers/android_tv/protocol/cast_protocol_handler.dart'
+    as _i556;
 import '../core/drivers/android_tv/transport/android_tv_transport.dart'
     as _i260;
 import '../core/drivers/android_tv/transport/native_tls_socket.dart' as _i415;
@@ -117,6 +119,10 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i881.CertificateManager>(
       () => _i881.CertificateManager(storage: gh<_i468.StorageService>()),
     );
+    gh.singleton<_i556.CastProtocolHandler>(
+      () =>
+          _i556.CastProtocolHandler(transport: gh<_i260.AndroidTvTransport>()),
+    );
     gh.singleton<_i1061.AndroidTvProtocolHandler>(
       () => _i1061.AndroidTvProtocolHandler(
         transport: gh<_i260.AndroidTvTransport>(),
@@ -126,6 +132,17 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i761.FavoriteRepository>(
       () => _i478.FavoriteRepositoryImpl(gh<_i758.FavoritesDatasource>()),
     );
+    gh.singleton<_i145.AndroidTvConnectionManager>(
+      () => _i145.AndroidTvConnectionManager(
+        protocol: gh<_i1061.AndroidTvProtocolHandler>(),
+        castProtocol: gh<_i556.CastProtocolHandler>(),
+        transport: gh<_i260.AndroidTvTransport>(),
+      ),
+    );
+    gh.singleton<_i842.AndroidTvDriver>(
+      () => _i842.AndroidTvDriver(gh<_i145.AndroidTvConnectionManager>()),
+      instanceName: 'android_tv',
+    );
     gh.singleton<_i488.AndroidTvPairingManager>(
       () => _i488.AndroidTvPairingManager(
         protocol: gh<_i1061.AndroidTvProtocolHandler>(),
@@ -134,16 +151,6 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i318.FavoritesBloc>(
       () => _i318.FavoritesBloc(gh<_i761.FavoriteRepository>()),
-    );
-    gh.singleton<_i145.AndroidTvConnectionManager>(
-      () => _i145.AndroidTvConnectionManager(
-        protocol: gh<_i1061.AndroidTvProtocolHandler>(),
-        transport: gh<_i260.AndroidTvTransport>(),
-      ),
-    );
-    gh.singleton<_i842.AndroidTvDriver>(
-      () => _i842.AndroidTvDriver(gh<_i145.AndroidTvConnectionManager>()),
-      instanceName: 'android_tv',
     );
     gh.lazySingleton<_i605.DriverRegistry>(
       () => driversModule.driverRegistry(
