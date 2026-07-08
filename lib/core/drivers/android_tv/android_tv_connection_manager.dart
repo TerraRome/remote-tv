@@ -120,12 +120,9 @@ class AndroidTvConnectionManager {
 
   /// Perform the pairing protocol after TLS connection.
   ///
-  /// 1. Option exchange (pairing request)
-  /// 2. TV shows PIN, returns pairing request ack
-  /// 3. Waits for [submitPin] to be called with user-entered PIN
-  /// 4. Sends PIN, gets ack
-  /// 5. Configuration exchange (certificates)
-  /// 6. Returns DriverPairingSession
+  /// 1. Initiate pairing — TV shows PIN
+  /// 2. Returns DriverPairingSession with the PIN from ack
+  /// 3. Caller must call [submitPin] with the PIN shown on TV
   ///
   /// The returned session contains the PIN the TV displayed.
   Future<DriverPairingSession> pair(DriverDevice device) async {
@@ -136,22 +133,13 @@ class AndroidTvConnectionManager {
       throw DriverConnectionException('Not connected - call connect() first');
     }
 
-    // Step 1: Option exchange - request pairing
+    // Initiate pairing - TV shows PIN
     _connectionStateController.add(TvConnectionState.connecting);
-    debugPrint('[AndroidTvConnMgr] exchanging options...');
-    await _protocol.exchangeOptions(
-      Uint8List.fromList([0x01]), // pairing option
-      Uint8List.fromList('Remote App'.codeUnits), // client name
-    );
-    debugPrint('[AndroidTvConnMgr] options exchanged OK');
-
-    // Step 2: Initiate pairing - TV shows PIN
     debugPrint('[AndroidTvConnMgr] initiating pairing...');
     final ack = await _protocol.initiatePairing(Uint8List.fromList([0x01]));
     debugPrint(
       '[AndroidTvConnMgr] initiate pairing ack received, payload len=${ack.payload.length}',
     );
-    // ponytail: parse ack payload for PIN
     final pin = _parsePinFromAck(ack.payload);
     debugPrint('[AndroidTvConnMgr] parsed PIN: $pin');
 

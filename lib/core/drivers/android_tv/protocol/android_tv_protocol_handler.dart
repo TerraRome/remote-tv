@@ -194,6 +194,11 @@ class AndroidTvProtocolHandler {
 
   /// Perform option / configuration exchange with the TV.
   /// This completes the pairing handshake.
+  ///
+  /// Protocol order:
+  ///   1. Send OPTION (0x05) — client capabilities
+  ///   2. Receive OPTION ack (0x05) — TV device name
+  ///   3. Send CONFIGURATION (0x06) — client config
   Future<void> exchangeOptions(
     Uint8List optionData,
     Uint8List configData,
@@ -201,18 +206,18 @@ class AndroidTvProtocolHandler {
     debugPrint(
       '[ProtocolHandler] exchangeOptions optionLen=${optionData.length} configLen=${configData.length}',
     );
-    await sendMessage(_codec.encodeOption(optionData));
-    debugPrint('[ProtocolHandler] option sent, sending configuration');
-    await sendMessage(_codec.encodeConfiguration(configData));
-    debugPrint('[ProtocolHandler] config sent, waiting for response');
+    // Step 1: Send OPTION and wait for response (which contains device name)
     final response = await sendAndWait(
-      AndroidTvMessage(
-        type: AndroidTvMessageType.option,
-        payload: Uint8List(0),
-      ),
+      _codec.encodeOption(optionData),
       AndroidTvMessageType.option,
     );
     _deviceName = String.fromCharCodes(response.payload);
+    debugPrint('[ProtocolHandler] received device name: $_deviceName');
+
+    // Step 2: Send CONFIGURATION - no response expected
+    await sendMessage(_codec.encodeConfiguration(configData));
+    debugPrint('[ProtocolHandler] config sent');
+
     _paired = true;
     debugPrint(
       '[ProtocolHandler] exchangeOptions complete, paired=$_paired deviceName=$_deviceName',

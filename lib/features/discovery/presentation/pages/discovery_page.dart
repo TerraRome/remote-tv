@@ -10,8 +10,24 @@ import '../widgets/discovery_empty.dart' as empty_widget;
 import '../widgets/discovery_loading.dart';
 import '../widgets/discovery_error.dart';
 
-final class DiscoveryPage extends StatelessWidget {
+final class DiscoveryPage extends StatefulWidget {
   const DiscoveryPage({super.key});
+
+  @override
+  State<DiscoveryPage> createState() => _DiscoveryPageState();
+}
+
+final class _DiscoveryPageState extends State<DiscoveryPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Auto-start discovery when page loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<DiscoveryBloc>().add(const StartDiscovery());
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
