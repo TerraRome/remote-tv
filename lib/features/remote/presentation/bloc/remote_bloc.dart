@@ -1,6 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
-import '../../../discovery/domain/entities/tv_device.dart';
 import '../../domain/repositories/remote_repository.dart';
 import 'remote_event.dart';
 import 'remote_state.dart';
@@ -17,7 +16,7 @@ final class RemoteBloc extends Bloc<RemoteEvent, RemoteState> {
   }
 
   void _onDeviceChanged(RemoteDeviceChanged event, Emitter<RemoteState> emit) {
-    emit(RemoteReady(event.deviceId));
+    emit(RemoteReady(event.device));
   }
 
   Future<void> _onCommandIssued(
@@ -26,8 +25,8 @@ final class RemoteBloc extends Bloc<RemoteEvent, RemoteState> {
   ) async {
     try {
       final state = this.state;
-      if (state case RemoteReady(:final deviceId)) {
-        await _repository.sendCommand(deviceId, event.command);
+      if (state case RemoteReady(:final device)) {
+        await _repository.sendCommand(device, event.command);
         final label = event.command.name;
         emit(RemoteCommandSent('$label sent'));
       }
@@ -42,8 +41,8 @@ final class RemoteBloc extends Bloc<RemoteEvent, RemoteState> {
   ) async {
     try {
       final state = this.state;
-      if (state case RemoteReady(:final deviceId)) {
-        await _repository.sendTouch(deviceId, event.touchEvent);
+      if (state case RemoteReady(:final device)) {
+        await _repository.sendTouch(device, event.touchEvent);
         emit(const RemoteCommandSent('Touch sent'));
       }
     } catch (e) {
@@ -57,23 +56,12 @@ final class RemoteBloc extends Bloc<RemoteEvent, RemoteState> {
   ) async {
     try {
       final state = this.state;
-      if (state case RemoteReady(:final deviceId)) {
-        await _repository.sendText(deviceId, event.text);
+      if (state case RemoteReady(:final device)) {
+        await _repository.sendText(device, event.text);
         emit(RemoteCommandSent('Text sent'));
       }
     } catch (e) {
       emit(RemoteError(e.toString()));
     }
   }
-}
-
-/// Helper to create RemoteDevice from a discovery device
-TvDevice tvDeviceFromId(String deviceId) {
-  return TvDevice(
-    id: deviceId,
-    name: '',
-    ipAddress: '',
-    port: 0,
-    deviceType: 'android_tv',
-  );
 }

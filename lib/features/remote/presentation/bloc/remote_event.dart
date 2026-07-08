@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import '../../../../core/enums/remote_command.dart';
+import '../../../discovery/domain/entities/tv_device.dart';
 import '../../domain/entities/touch_event.dart';
 
 sealed class RemoteEvent extends Equatable {
@@ -34,9 +35,9 @@ final class RemoteTouchEventSent extends RemoteEvent {
 }
 
 final class RemoteDeviceChanged extends RemoteEvent {
-  final String deviceId;
-  const RemoteDeviceChanged(this.deviceId);
+  final TvDevice device;
+  const RemoteDeviceChanged(this.device);
 
   @override
-  List<Object?> get props => [deviceId];
+  List<Object?> get props => [device];
 }

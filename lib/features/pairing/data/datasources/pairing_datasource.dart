@@ -65,8 +65,7 @@ final class PairingDatasource {
   Future<drv_session.DriverPairingSession> startPairing(TvDevice device) async {
     final driverDevice = _toDriverDevice(device);
     final driver = await _resolve(driverDevice);
-
-    await driver.connect(driverDevice);
+    // pair() calls connect() internally
     return driver.pair(driverDevice);
   }
 

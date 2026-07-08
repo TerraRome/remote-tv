@@ -56,7 +56,20 @@ class AndroidTvConnectionManager {
     );
     if (_disposed) throw StateError('Connection manager disposed');
     if (isConnected) {
-      debugPrint('[AndroidTvConnMgr] already connected, disconnecting first');
+      if (_connectedDevice?.ipAddress == device.ipAddress &&
+          _connectedDevice?.port == (device.port == 0 ? 6466 : device.port)) {
+        debugPrint('[AndroidTvConnMgr] already connected to same device, skipping');
+        return DriverConnection(
+          deviceId: device.id,
+          driverId: 'android_tv',
+          state: 'connected',
+          sessionToken:
+              'session_${device.id}_${_connectedAt!.millisecondsSinceEpoch}',
+          connectedAt: _connectedAt!,
+          lastActivityAt: _connectedAt,
+        );
+      }
+      debugPrint('[AndroidTvConnMgr] connected to different device, disconnecting first');
       await disconnect();
     }
 
@@ -204,8 +217,16 @@ class AndroidTvConnectionManager {
   }
 
   /// Parse PIN from pairing request ack payload.
-  /// ponytail: implement real PIN extraction per protocol version
   int _parsePinFromAck(Uint8List payload) {
+    // Try ASCII string first (e.g. "123456" -> bytes [0x31,0x32,0x33,0x34,0x35,0x36])
+    try {
+      final pinStr = String.fromCharCodes(payload).trim();
+      if (pinStr.isNotEmpty && RegExp(r'^\d+$').hasMatch(pinStr)) {
+        return int.parse(pinStr);
+      }
+    } catch (_) {}
+
+    // Fallback: big-endian uint32
     if (payload.length >= 4) {
       return (payload[0] << 24 |
               payload[1] << 16 |
@@ -213,7 +234,7 @@ class AndroidTvConnectionManager {
               payload[3])
           .toUnsigned(32);
     }
-    // Fallback: generate random 4-digit PIN for testing
+    // Last fallback: shouldn't happen with real TV
     return DateTime.now().millisecond % 9000 + 1000;
   }
 

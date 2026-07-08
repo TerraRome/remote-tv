@@ -13,39 +13,17 @@ final class RemoteRepositoryImpl implements RemoteRepository {
   RemoteRepositoryImpl(this._datasource);
 
   @override
-  Future<void> sendCommand(String deviceId, RemoteCommand command) async {
-    // Device lookup would come from a cache if needed
-    final device = TvDevice(
-      id: deviceId,
-      name: '',
-      ipAddress: '',
-      port: 0,
-      deviceType: 'android_tv',
-    );
+  Future<void> sendCommand(TvDevice device, RemoteCommand command) async {
     await _datasource.sendCommand(device, command);
   }
 
   @override
-  Future<void> sendText(String deviceId, String text) async {
-    final device = TvDevice(
-      id: deviceId,
-      name: '',
-      ipAddress: '',
-      port: 0,
-      deviceType: 'android_tv',
-    );
+  Future<void> sendText(TvDevice device, String text) async {
     await _datasource.sendText(device, text);
   }
 
   @override
-  Future<void> sendTouch(String deviceId, TouchEvent event) async {
-    final device = TvDevice(
-      id: deviceId,
-      name: '',
-      ipAddress: '',
-      port: 0,
-      deviceType: 'android_tv',
-    );
+  Future<void> sendTouch(TvDevice device, TouchEvent event) async {
     await _datasource.sendTouch(device, event);
   }
 }

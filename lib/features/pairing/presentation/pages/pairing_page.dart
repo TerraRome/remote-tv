@@ -52,7 +52,7 @@ final class _PairingViewState extends State<_PairingView> {
             );
           }
           if (state is PairingSuccess) {
-            context.push('/remote/${state.device.id}');
+            context.push('/remote/${state.device.id}', extra: state.device);
           }
         },
         builder: (context, state) {

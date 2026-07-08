@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../driver_exception.dart';
 import '../transport/android_tv_transport.dart';
 import 'android_tv_message.dart';
 import 'android_tv_message_codec.dart';
@@ -184,7 +185,10 @@ class AndroidTvProtocolHandler {
     debugPrint(
       '[ProtocolHandler] sendPin ack received, payloadLen=${ack.payload.length}',
     );
-    // ponytail: parse ack payload for success/failure code
+    // Parse ack: byte 0 = 0x01 success, 0x00 failure
+    if (ack.payload.isNotEmpty && ack.payload[0] == 0x00) {
+      throw DriverPairingException('TV rejected the PIN');
+    }
     return ack;
   }
 

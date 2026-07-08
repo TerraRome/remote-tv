@@ -1,3 +1,4 @@
+import '../../../discovery/domain/entities/tv_device.dart';
 import '../repositories/remote_repository.dart';
 
 final class SendText {
@@ -5,6 +6,6 @@ final class SendText {
 
   SendText(this._repository);
 
-  Future<void> call(String deviceId, String text) =>
-      _repository.sendText(deviceId, text);
+  Future<void> call(TvDevice device, String text) =>
+      _repository.sendText(device, text);
 }

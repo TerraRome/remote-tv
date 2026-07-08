@@ -48,10 +48,10 @@ final class AppRouter {
         path: '/remote/:deviceId',
         name: 'remote',
         builder: (context, state) {
-          final deviceId = state.pathParameters['deviceId']!;
+          final device = state.extra as TvDevice;
           return BlocProvider(
             create: (_) => getIt<RemoteBloc>(),
-            child: RemotePage(deviceId: deviceId),
+            child: RemotePage(device: device),
           );
         },
       ),

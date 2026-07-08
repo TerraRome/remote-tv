@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/enums/remote_command.dart';
+import '../../../../di/injection.dart';
+import '../../../discovery/domain/entities/tv_device.dart';
 import '../bloc/remote_bloc.dart';
 import '../bloc/remote_event.dart';
 import '../bloc/remote_state.dart';
@@ -12,16 +14,16 @@ import '../widgets/remote_channel_buttons.dart';
 import '../widgets/remote_touchpad.dart';
 
 final class RemotePage extends StatelessWidget {
-  final String deviceId;
+  final TvDevice device;
 
-  const RemotePage({super.key, required this.deviceId});
+  const RemotePage({super.key, required this.device});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider<RemoteBloc>(
       create: (context) {
-        final bloc = context.read<RemoteBloc>();
-        bloc.add(RemoteDeviceChanged(deviceId));
+        final bloc = getIt<RemoteBloc>();
+        bloc.add(RemoteDeviceChanged(device));
         return bloc;
       },
       child: const _RemoteView(),

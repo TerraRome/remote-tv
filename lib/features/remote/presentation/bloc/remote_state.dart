@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../../discovery/domain/entities/tv_device.dart';
 
 sealed class RemoteState extends Equatable {
   const RemoteState();
@@ -12,11 +13,11 @@ final class RemoteInitial extends RemoteState {
 }
 
 final class RemoteReady extends RemoteState {
-  final String deviceId;
-  const RemoteReady(this.deviceId);
+  final TvDevice device;
+  const RemoteReady(this.device);
 
   @override
-  List<Object?> get props => [deviceId];
+  List<Object?> get props => [device];
 }
 
 final class RemoteCommandSent extends RemoteState {
