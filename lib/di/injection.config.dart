@@ -87,7 +87,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => discoveryModule.discoveryService,
     );
     gh.singleton<_i468.StorageService>(() => _i468.StorageService());
-    gh.singleton<_i260.AndroidTvTransport>(() => _i678.SecureSocketTransport());
     gh.singleton<_i221.DiscoveryProvider>(
       () => discoveryModule.ssdpProvider,
       instanceName: 'ssdp',
@@ -99,6 +98,7 @@ extension GetItInjectableX on _i174.GetIt {
       () => discoveryModule.mdnsProvider,
       instanceName: 'mdns',
     );
+    gh.singleton<_i260.AndroidTvTransport>(() => _i678.CombinedTransport());
     gh.singleton<_i221.DiscoveryProvider>(
       () => discoveryModule.manualProvider,
       instanceName: 'manual',

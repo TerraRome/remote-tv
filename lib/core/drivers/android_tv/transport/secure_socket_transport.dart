@@ -7,16 +7,18 @@ import 'package:injectable/injectable.dart';
 import '../../driver_exception.dart';
 import 'android_tv_transport.dart';
 
-/// TLS SecureSocket transport for Android TV remote protocol (port 6466).
+/// Combined transport: tries TLS first, falls back to raw TCP if TV
+/// doesn't support TLS on the remote protocol port.
 @Singleton(as: AndroidTvTransport)
-final class SecureSocketTransport implements AndroidTvTransport {
-  SecureSocket? _socket;
+final class CombinedTransport implements AndroidTvTransport {
+  Socket? _socket;
   final _messageController = StreamController<Uint8List>.broadcast();
   StreamSubscription<Uint8List>? _subscription;
   bool _disposed = false;
 
   @override
-  X509Certificate? get serverCertificate => _socket?.peerCertificate;
+  X509Certificate? get serverCertificate =>
+      _socket is SecureSocket ? (_socket as SecureSocket).peerCertificate : null;
 
   @override
   bool get isConnected => _socket != null;
@@ -27,92 +29,128 @@ final class SecureSocketTransport implements AndroidTvTransport {
 
   @override
   Future<void> connect(String host, int port) async {
-    debugPrint('[SecureSocketTransport] connect() $host:$port');
+    debugPrint('[CombinedTransport] connect() $host:$port');
     if (_disposed) {
-      debugPrint('[SecureSocketTransport] connect FAILED - disposed');
+      debugPrint('[CombinedTransport] connect FAILED - disposed');
       throw StateError('Transport disposed');
     }
     await disconnect();
+
+    // Try TLS first
     try {
-      debugPrint('[SecureSocketTransport] establishing TLS connection...');
+      debugPrint('[CombinedTransport] trying TLS...');
       _socket = await SecureSocket.connect(
         host,
         port,
         timeout: const Duration(seconds: 5),
-        // ponytail: add certificate pinning after pairing
         onBadCertificate: (cert) => true,
       );
       debugPrint(
-        '[SecureSocketTransport] TLS connected, peerCert=${_socket?.peerCertificate?.issuer}',
-      );
-      _subscription = _rawStream().listen(
-        (data) {
-          debugPrint('[SecureSocketTransport] received ${data.length} bytes');
-          _messageController.add(data);
-        },
-        onError: (e) {
-          debugPrint('[SecureSocketTransport] stream error: $e');
-          if (!_messageController.isClosed) {
-            _messageController.addError(
-              DriverConnectionException(
-                'Transport error: $e',
-                cause: e is Exception ? e : null,
-              ),
-            );
-          }
-        },
-        onDone: () {
-          debugPrint('[SecureSocketTransport] stream done');
-          if (!_messageController.isClosed) {
-            _messageController.close();
-          }
-        },
+        '[CombinedTransport] TLS connected, peerCert=${(_socket as SecureSocket).peerCertificate?.issuer}',
       );
     } on SocketException catch (e) {
-      debugPrint('[SecureSocketTransport] SocketException: ${e.message}');
-      throw DriverConnectionException(
-        'Connection to $host:$port failed: ${e.message}',
-        cause: e,
-      );
+      // If TCP connected but TLS failed ("Read failed"), try raw socket
+      if (e.message == 'Read failed' || (e.osError?.message ?? '').contains('Read failed')) {
+        debugPrint('[CombinedTransport] TLS failed ($e), trying raw TCP...');
+        try {
+          _socket = await Socket.connect(
+            host,
+            port,
+            timeout: const Duration(seconds: 5),
+          );
+          debugPrint('[CombinedTransport] raw TCP connected');
+        } catch (rawError) {
+          debugPrint('[CombinedTransport] raw TCP also failed: $rawError');
+          _socket = null;
+          throw DriverConnectionException(
+            'Connection to $host:$port failed (TLS + raw): ${rawError is SocketException ? rawError.message : rawError}',
+            cause: rawError is Exception ? rawError : null,
+          );
+        }
+      } else {
+        debugPrint('[CombinedTransport] SocketException: ${e.message}');
+        _socket = null;
+        throw DriverConnectionException(
+          'Connection to $host:$port failed: ${e.message}',
+          cause: e,
+        );
+      }
     } on HandshakeException catch (e) {
-      debugPrint('[SecureSocketTransport] HandshakeException: ${e.message}');
-      throw DriverConnectionException(
-        'TLS handshake with $host:$port failed: ${e.message}',
-        cause: e,
-      );
+      debugPrint('[CombinedTransport] HandshakeException: ${e.message}, trying raw TCP...');
+      try {
+        _socket = await Socket.connect(
+          host,
+          port,
+          timeout: const Duration(seconds: 5),
+        );
+        debugPrint('[CombinedTransport] raw TCP connected after TLS handshake failure');
+      } catch (rawError) {
+        debugPrint('[CombinedTransport] raw TCP also failed: $rawError');
+        _socket = null;
+        throw DriverConnectionException(
+          'Connection to $host:$port failed (TLS handshake + raw): ${rawError is SocketException ? rawError.message : rawError}',
+          cause: rawError is Exception ? rawError : null,
+        );
+      }
     } on TimeoutException catch (e) {
-      debugPrint('[SecureSocketTransport] TimeoutException');
+      debugPrint('[CombinedTransport] TimeoutException');
+      _socket = null;
       throw DriverConnectionException(
         'Connection to $host:$port timed out',
         cause: e,
       );
     }
+
+    // Set up stream listener
+    _subscription = _rawStream().listen(
+      (data) {
+        debugPrint('[CombinedTransport] received ${data.length} bytes');
+        _messageController.add(data);
+      },
+      onError: (e) {
+        debugPrint('[CombinedTransport] stream error: $e');
+        if (!_messageController.isClosed) {
+          _messageController.addError(
+            DriverConnectionException(
+              'Transport error: $e',
+              cause: e is Exception ? e : null,
+            ),
+          );
+        }
+      },
+      onDone: () {
+        debugPrint('[CombinedTransport] stream done');
+        if (!_messageController.isClosed) {
+          _messageController.close();
+        }
+      },
+    );
   }
 
   @override
   Future<void> disconnect() async {
-    debugPrint('[SecureSocketTransport] disconnect()');
+    debugPrint('[CombinedTransport] disconnect()');
     await _subscription?.cancel();
     _subscription = null;
     try {
       await _socket?.close();
-      debugPrint('[SecureSocketTransport] socket closed');
+      debugPrint('[CombinedTransport] socket closed');
     } catch (e) {
-      debugPrint('[SecureSocketTransport] close error: $e');
+      debugPrint('[CombinedTransport] close error: $e');
     }
     _socket = null;
   }
 
   @override
   Future<void> send(Uint8List data) async {
-    debugPrint('[SecureSocketTransport] send ${data.length} bytes');
+    debugPrint('[CombinedTransport] send ${data.length} bytes');
     if (_socket == null) {
-      debugPrint('[SecureSocketTransport] send FAILED - not connected');
+      debugPrint('[CombinedTransport] send FAILED - not connected');
       throw DriverConnectionException('Not connected');
     }
     _socket!.add(data);
     await _socket!.flush();
-    debugPrint('[SecureSocketTransport] send flushed');
+    debugPrint('[CombinedTransport] send flushed');
   }
 
   @override
