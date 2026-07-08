@@ -72,7 +72,14 @@ class AndroidTvDriver implements TvDriver {
   @override
   Future<DriverConnection> connect(DriverDevice device) async {
     final errors = <String>[];
-    for (final port in _ports) {
+
+    // Build port list: discovered port first (if known), then fallbacks
+    final ports = <int>{};
+    if (device.port != 0) ports.add(device.port);
+    ports.addAll(_ports);
+    final orderedPorts = ports.toList();
+
+    for (final port in orderedPorts) {
       try {
         // Fast attempt: 1 retry, 1s delay per port for quick fallback
         return await _connectionManager.connect(
