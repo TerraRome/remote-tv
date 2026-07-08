@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:remote/core/enums/remote_command.dart';
 import '../driver_exception.dart';
@@ -15,6 +16,8 @@ import 'android_tv_connection_manager.dart';
 @Named('android_tv')
 class AndroidTvDriver implements TvDriver {
   final AndroidTvConnectionManager _connectionManager;
+
+  static const List<int> _ports = [6466, 5555, 7250, 8010];
 
   AndroidTvDriver(this._connectionManager);
 
@@ -68,10 +71,23 @@ class AndroidTvDriver implements TvDriver {
 
   @override
   Future<DriverConnection> connect(DriverDevice device) async {
-    // Android TV remote protocol always uses port 6466
-    // Ignore mDNS port (e.g. Google Cast port 8009)
-    final normalizedDevice = device.copyWith(port: 6466);
-    return _connectionManager.connect(normalizedDevice);
+    final errors = <String>[];
+    for (final port in _ports) {
+      try {
+        // Fast attempt: 1 retry, 1s delay per port for quick fallback
+        return await _connectionManager.connect(
+          device.copyWith(port: port),
+          maxRetries: 1,
+          retryDelay: const Duration(seconds: 1),
+        );
+      } on DriverConnectionException catch (e) {
+        debugPrint('[AndroidTvDriver] port $port failed: $e');
+        errors.add('port $port: ${e.message}');
+      }
+    }
+    throw DriverConnectionException(
+      'Cannot connect to ${device.ipAddress}: ${errors.join('; ')}',
+    );
   }
 
   @override
