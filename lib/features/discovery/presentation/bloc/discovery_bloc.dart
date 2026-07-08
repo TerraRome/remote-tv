@@ -10,8 +10,6 @@ import 'discovery_state.dart';
 @injectable
 final class DiscoveryBloc extends Bloc<DiscoveryEvent, DiscoveryState> {
   final WatchDiscoveredTvs _watchDiscoveredTvs;
-  StreamSubscription<TvDevice>? _discoverySub;
-  Timer? _discoveryTimer;
   List<TvDevice> _devices = [];
 
   DiscoveryBloc(this._watchDiscoveredTvs) : super(const DiscoveryInitial()) {
@@ -21,62 +19,40 @@ final class DiscoveryBloc extends Bloc<DiscoveryEvent, DiscoveryState> {
     on<DeviceSelected>(_onDeviceSelected);
   }
 
-  void _cancelDiscovery() {
-    _discoveryTimer?.cancel();
-    _discoveryTimer = null;
-    _discoverySub?.cancel();
-    _discoverySub = null;
-    _watchDiscoveredTvs.stop();
-  }
-
   Future<void> _onStartDiscovery(
     StartDiscovery event,
     Emitter<DiscoveryState> emit,
   ) async {
     debugPrint('[DiscoveryBloc] StartDiscovery triggered');
-    _cancelDiscovery();
+    _watchDiscoveredTvs.stop();
     _devices = [];
     emit(const DiscoveryLoading());
 
-    // Overall timeout: emit empty if nothing found within 10s
-    _discoveryTimer = Timer(const Duration(seconds: 10), () {
-      debugPrint('[DiscoveryBloc] Discovery timeout (10s)');
-      if (!isClosed) {
-        _cancelDiscovery();
-        emit(const DiscoveryEmpty());
-      }
-    });
-
     try {
-      final stream = _watchDiscoveredTvs();
-      _discoverySub = stream.listen(
-        (device) {
+      await emit.forEach<TvDevice>(
+        _watchDiscoveredTvs().timeout(
+          const Duration(seconds: 12),
+          onTimeout: (sink) => sink.close(),
+        ),
+        onData: (device) {
           debugPrint(
             '[DiscoveryBloc] Device received: '
             '${device.id} ${device.name} ${device.ipAddress}',
           );
           _devices.add(device);
-          // Cancel timeout since we found at least one device
-          _discoveryTimer?.cancel();
-          emit(DiscoveryLoaded(List.unmodifiable(_devices)));
+          return DiscoveryLoaded(List.unmodifiable(_devices));
         },
-        onError: (error) {
+        onError: (error, _) {
           debugPrint('[DiscoveryBloc] Error: $error');
-          _discoveryTimer?.cancel();
-          emit(DiscoveryError(error.toString()));
-        },
-        onDone: () {
-          debugPrint('[DiscoveryBloc] Stream done');
-          _discoveryTimer?.cancel();
-          if (_devices.isEmpty && !isClosed) {
-            emit(const DiscoveryEmpty());
-          }
+          return DiscoveryError(error.toString());
         },
       );
     } catch (e) {
-      _discoveryTimer?.cancel();
-      debugPrint('[DiscoveryBloc] Failed to start discovery: $e');
-      emit(DiscoveryError(e.toString()));
+      debugPrint('[DiscoveryBloc] emit.forEach error: $e');
+    }
+
+    if (_devices.isEmpty && !isClosed) {
+      emit(const DiscoveryEmpty());
     }
   }
 
@@ -84,7 +60,7 @@ final class DiscoveryBloc extends Bloc<DiscoveryEvent, DiscoveryState> {
     StopDiscovery event,
     Emitter<DiscoveryState> emit,
   ) async {
-    _cancelDiscovery();
+    _watchDiscoveredTvs.stop();
     if (_devices.isEmpty) {
       emit(const DiscoveryEmpty());
     } else {
@@ -96,7 +72,7 @@ final class DiscoveryBloc extends Bloc<DiscoveryEvent, DiscoveryState> {
     RetryDiscovery event,
     Emitter<DiscoveryState> emit,
   ) async {
-    _cancelDiscovery();
+    _watchDiscoveredTvs.stop();
     _devices = [];
     add(const StartDiscovery());
   }
@@ -105,7 +81,7 @@ final class DiscoveryBloc extends Bloc<DiscoveryEvent, DiscoveryState> {
 
   @override
   Future<void> close() {
-    _cancelDiscovery();
+    _watchDiscoveredTvs.stop();
     return super.close();
   }
 }

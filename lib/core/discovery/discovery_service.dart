@@ -13,7 +13,7 @@ class DiscoveryServiceImpl implements DiscoveryService {
   final DiscoveryRegistry _registry;
   final Map<String, StreamSubscription<DriverDevice>> _subscriptions = {};
   final Set<String> _seenDeviceKeys = {};
-  final StreamController<DiscoveryResult> _controller =
+  StreamController<DiscoveryResult> _controller =
       StreamController<DiscoveryResult>.broadcast();
   bool _isRunning = false;
   int _activeProviders = 0;
@@ -28,6 +28,11 @@ class DiscoveryServiceImpl implements DiscoveryService {
     if (_isRunning) return _controller.stream;
     _isRunning = true;
     _seenDeviceKeys.clear();
+
+    // Recreate controller if it was closed
+    if (_controller.isClosed) {
+      _controller = StreamController<DiscoveryResult>.broadcast();
+    }
 
     unawaited(_startAllProviders());
 
@@ -61,13 +66,15 @@ class DiscoveryServiceImpl implements DiscoveryService {
             return;
           }
           if (key != null) _seenDeviceKeys.add(key);
-          _controller.add(
-            DiscoveryResult(
-              device: device,
-              protocol: provider.protocols.first,
-              discoveredAt: DateTime.now(),
-            ),
-          );
+          if (!_controller.isClosed) {
+            _controller.add(
+              DiscoveryResult(
+                device: device,
+                protocol: provider.protocols.first,
+                discoveredAt: DateTime.now(),
+              ),
+            );
+          }
         },
         onError: (error, stackTrace) {
           debugPrint(
@@ -110,6 +117,9 @@ class DiscoveryServiceImpl implements DiscoveryService {
     _subscriptions.clear();
     _seenDeviceKeys.clear();
     _isRunning = false;
+    if (!_controller.isClosed) {
+      _controller.close();
+    }
   }
 
   void dispose() {

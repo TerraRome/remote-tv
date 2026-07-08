@@ -68,10 +68,9 @@ class AndroidTvDriver implements TvDriver {
 
   @override
   Future<DriverConnection> connect(DriverDevice device) async {
-    // Port 6466 is the default Android TV remote protocol port
-    final normalizedDevice = device.port == 0
-        ? device.copyWith(port: 6466)
-        : device;
+    // Android TV remote protocol always uses port 6466
+    // Ignore mDNS port (e.g. Google Cast port 8009)
+    final normalizedDevice = device.copyWith(port: 6466);
     return _connectionManager.connect(normalizedDevice);
   }
 
